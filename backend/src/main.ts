@@ -8,8 +8,7 @@ async function bootstrap() {
 
   app.enableCors({
     origin:
-    process.env.FRONTEND_URL ||
-    'http://localhost:3000',
+      'https://sturdy-invention-jjp77456qw9j2574g-3000.app.github.dev',
   });
 
   app.useGlobalPipes(
