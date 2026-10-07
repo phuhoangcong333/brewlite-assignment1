@@ -5,11 +5,15 @@ import { useEffect, useState } from "react";
 import { getProducts } from "@/lib/api";
 import { formatVND } from "@/lib/pricing";
 import type { Product } from "@/lib/types";
+import { useCartStore } from "@/lib/cart-store"; // 1. Store giỏ hàng
 
 export default function MenuPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // 2. Lấy hàm addItem từ Zustand store
+  const addItem = useCartStore((state) => state.addItem);
 
   const load = () => {
     setLoading(true);
@@ -46,22 +50,43 @@ export default function MenuPage() {
           <Link
             key={p.id}
             href={`/products/${p.id}`}
-            className="rounded-lg border p-3 transition hover:shadow-md"
+            className="flex flex-col justify-between rounded-lg border p-3 transition hover:shadow-md"
           >
-            <div className="mb-2 flex h-28 items-center justify-center rounded bg-amber-100 text-4xl">
-              {p.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={p.imageUrl}
-                  alt={p.name}
-                  className="h-full w-full rounded object-cover"
-                />
-              ) : (
-                "☕"
-              )}
+            <div>
+              <div className="mb-2 flex h-28 items-center justify-center rounded bg-amber-100 text-4xl">
+                {p.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={p.imageUrl}
+                    alt={p.name}
+                    className="h-full w-full rounded object-cover"
+                  />
+                ) : (
+                  "☕"
+                )}
+              </div>
+              <p className="font-medium">{p.name}</p>
+              <p className="text-amber-700">{formatVND(p.price)}</p>
             </div>
-            <p className="font-medium">{p.name}</p>
-            <p className="text-amber-700">{formatVND(p.price)}</p>
+
+            {/* 3. Nút thêm nhanh vào giỏ hàng */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault(); // Chặn thẻ Link chuyển hướng sang trang chi tiết
+                addItem({
+                  productId: String(p.id),
+                  name: p.name,
+                  price: p.price,
+                  size: "M",
+                  toppings: [],
+                  imageUrl: p.imageUrl ?? undefined,
+                });
+              }}
+              className="mt-3 w-full rounded-md bg-amber-800 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-900 active:scale-95"
+            >
+              + Thêm vào giỏ
+            </button>
           </Link>
         ))}
       </div>
