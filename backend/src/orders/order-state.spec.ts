@@ -1,5 +1,10 @@
 import { InvalidTransitionException } from '../common/errors';
-import { assertTransition, OrderStatus } from './order-state';
+import {
+  assertTransition,
+  canTransition,
+  OrderStatus,
+  validTransitions as transitionTable,
+} from './order-state';
 
 const statuses: OrderStatus[] = [
   'PENDING',
@@ -32,6 +37,16 @@ describe('assertTransition', () => {
     expect(statuses).toHaveLength(7);
     expect(allPairs).toHaveLength(49);
     expect(validTransitions).toHaveLength(9);
+    expect(
+      Object.values(transitionTable).flat().length,
+    ).toBe(9);
+  });
+
+  it('rejects the demo-invalid transition PENDING -> READY', () => {
+    expect(canTransition('PENDING', 'READY')).toBe(false);
+    expect(() => assertTransition('PENDING', 'READY')).toThrow(
+      new InvalidTransitionException('PENDING', 'READY'),
+    );
   });
 
   it.each(statuses.flatMap((from) => statuses.map((to) => [from, to] as const)))(
