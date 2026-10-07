@@ -52,7 +52,7 @@ export default function RegisterPage() {
 
     try {
       const response = await fetch(
-        'http://localhost:3000/auth/register',
+        'http://localhost:3001/auth/register',
         {
           method: 'POST',
           headers: {
