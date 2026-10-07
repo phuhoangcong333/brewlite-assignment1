@@ -1,0 +1,144 @@
+import { PrismaService } from '../prisma/prisma.service';
+import { describeDb } from '../../test/helpers/describe-db';
+import { PrismaInventoryRepository } from '../inventory/prisma-inventory.repository';
+import { OrderService } from './order.service';
+
+describeDb('OrderService.createOrder with PostgreSQL', () => {
+  const prisma = new PrismaService();
+  const service = new OrderService(
+    prisma,
+    new PrismaInventoryRepository(prisma),
+  );
+  const orderIds: number[] = [];
+  const userIds: number[] = [];
+  const productIds: number[] = [];
+
+  async function createUser(): Promise<number> {
+    const user = await prisma.user.create({
+      data: {
+        email: `order-create-${Date.now()}-${Math.random()}@example.test`,
+        passwordHash: 'test-password-hash',
+      },
+      select: { id: true },
+    });
+    userIds.push(user.id);
+    return user.id;
+  }
+
+  async function createProduct(stock: number): Promise<number> {
+    const product = await prisma.product.create({
+      data: {
+        name: `order-create-product-${Date.now()}-${Math.random()}`,
+        price: 35_000,
+        stock,
+      },
+      select: { id: true },
+    });
+    productIds.push(product.id);
+    return product.id;
+  }
+
+  beforeAll(async () => {
+    await prisma.$connect();
+  });
+
+  afterEach(async () => {
+    if (orderIds.length > 0) {
+      await prisma.order.deleteMany({ where: { id: { in: orderIds } } });
+      orderIds.length = 0;
+    }
+    if (userIds.length > 0) {
+      await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+      userIds.length = 0;
+    }
+    if (productIds.length > 0) {
+      await prisma.product.deleteMany({ where: { id: { in: productIds } } });
+      productIds.length = 0;
+    }
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it('creates the order and reserves stock in the same transaction', async () => {
+    const userId = await createUser();
+    const productId = await createProduct(10);
+
+    const order = await service.createOrder(userId, [
+      {
+        productId,
+        qty: 2,
+        size: 'M',
+        toppings: ['Trân châu'],
+      },
+    ]);
+    orderIds.push(order.id);
+
+    expect(order).toMatchObject({ status: 'PENDING', total: 90_000 });
+    await expect(
+      prisma.product.findUniqueOrThrow({
+        where: { id: productId },
+        select: { stock: true, version: true },
+      }),
+    ).resolves.toEqual({ stock: 8, version: 1 });
+    await expect(
+      prisma.orderItem.findMany({
+        where: { orderId: order.id },
+        select: { productId: true, qty: true, lineTotal: true, toppings: true },
+      }),
+    ).resolves.toEqual([
+      {
+        productId,
+        qty: 2,
+        lineTotal: 90_000,
+        toppings: ['Trân châu'],
+      },
+    ]);
+  });
+
+  it('rolls back reserved stock if creating the order fails', async () => {
+    const productId = await createProduct(10);
+    let missingUserId = 2_147_483_647;
+    while (
+      await prisma.user.findUnique({ where: { id: missingUserId } })
+    ) {
+      missingUserId -= 1;
+    }
+
+    await expect(
+      service.createOrder(missingUserId, [
+        { productId, qty: 2, size: 'S' },
+      ]),
+    ).rejects.toThrow();
+
+    await expect(
+      prisma.product.findUniqueOrThrow({
+        where: { id: productId },
+        select: { stock: true, version: true },
+      }),
+    ).resolves.toEqual({ stock: 10, version: 0 });
+    await expect(
+      prisma.order.count({ where: { userId: missingUserId } }),
+    ).resolves.toBe(0);
+  });
+
+  it('retries concurrent order creation without reserving the same stock twice', async () => {
+    const userId = await createUser();
+    const productId = await createProduct(50);
+
+    const orders = await Promise.all([
+      service.createOrder(userId, [{ productId, qty: 1, size: 'S' }]),
+      service.createOrder(userId, [{ productId, qty: 1, size: 'S' }]),
+    ]);
+    orderIds.push(...orders.map(({ id }) => id));
+
+    expect(orders).toHaveLength(2);
+    await expect(
+      prisma.product.findUniqueOrThrow({
+        where: { id: productId },
+        select: { stock: true, version: true },
+      }),
+    ).resolves.toEqual({ stock: 48, version: 2 });
+  });
+});
