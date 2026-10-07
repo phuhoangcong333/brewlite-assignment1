@@ -124,9 +124,13 @@ export default function LoginPage() {
 
         <p className="text-center text-gray-500 text-sm mt-6">
           Chưa có tài khoản?{' '}
-          <span className="text-blue-500 font-semibold cursor-pointer hover:underline">
+          <button
+            type="button"
+            onClick={() => router.push('/register')}
+            className="text-blue-500 font-semibold hover:underline"
+          >
             Đăng ký
-          </span>
+          </button>
         </p>
       </div>
     </main>

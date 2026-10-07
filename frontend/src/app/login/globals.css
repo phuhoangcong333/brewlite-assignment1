@@ -33,13 +33,13 @@
   text-align: center;
   font-size: 30px;
   font-weight: 700;
-  color: #222;
+  color: #222222;
 }
 
 .login-subtitle {
   margin: 8px 0 30px;
   text-align: center;
-  color: #777;
+  color: #777777;
 }
 
 .form-group {
@@ -50,7 +50,7 @@
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #333;
+  color: #000000 !important;
 }
 
 .form-group input {
@@ -62,10 +62,33 @@
   font-size: 15px;
   outline: none;
   transition: border-color 0.2s;
+
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+
+  background-color: #ffffff !important;
+}
+
+.form-group input::placeholder {
+  color: #999999 !important;
+  -webkit-text-fill-color: #999999 !important;
 }
 
 .form-group input:focus {
   border-color: #2f80ed;
+
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+.form-group input:-webkit-autofill,
+.form-group input:-webkit-autofill:hover,
+.form-group input:-webkit-autofill:focus,
+.form-group input:-webkit-autofill:active {
+  -webkit-text-fill-color: #000000 !important;
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+  caret-color: #000000;
 }
 
 .login-error {
@@ -83,7 +106,7 @@
   border: none;
   border-radius: 10px;
   background: #2f80ed;
-  color: white;
+  color: #ffffff;
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
@@ -101,7 +124,7 @@
 .register-text {
   margin-top: 24px;
   text-align: center;
-  color: #666;
+  color: #666666;
   font-size: 14px;
 }
 
@@ -109,4 +132,18 @@
   color: #2f80ed;
   font-weight: 600;
   cursor: pointer;
+}
+
+.register-text button {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: #2f80ed;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.register-text button:hover {
+  text-decoration: underline;
 }
