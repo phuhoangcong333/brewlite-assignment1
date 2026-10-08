@@ -1,16 +1,17 @@
 import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 const products = [
-  { name: 'Cà phê sữa', price: 35_000 },
-  { name: 'Americano', price: 40_000 },
-  { name: 'Cappuccino', price: 45_000 },
-  { name: 'Trà đào', price: 39_000 },
-  { name: 'Latte', price: 45_000 },
-  { name: 'Bạc xỉu', price: 38_000 },
-  { name: 'Trà vải', price: 39_000 },
-  { name: 'Matcha latte', price: 50_000 },
+  { name: 'Cà phê sữa', price: 35_000, imageUrl: '/image/Picture1.png' },
+  { name: 'Americano', price: 40_000, imageUrl: '/image/Picture2.png' },
+  { name: 'Cappuccino', price: 45_000, imageUrl: '/image/Picture3.png' },
+  { name: 'Trà đào', price: 39_000, imageUrl: '/image/Picture4.png' },
+  { name: 'Latte', price: 45_000, imageUrl: '/image/Picture5.png' },
+  { name: 'Bạc xỉu', price: 38_000, imageUrl: '/image/Picture6.png' },
+  { name: 'Trà vải', price: 39_000, imageUrl: '/image/Picture7.png' },
+  { name: 'Matcha latte', price: 50_000, imageUrl: '/image/Picture8.png' },
 ];
 
 const promotions = [
@@ -27,6 +28,14 @@ const promotions = [
     usageLeft: 5,
   },
 ];
+
+const user = [
+  {
+    email: 'test@gmail.com',
+    loyaltyPoints: 0
+  },
+];
+
 
 async function seed(): Promise<void> {
   await prisma.$transaction(async (transaction) => {
@@ -52,6 +61,19 @@ async function seed(): Promise<void> {
         update: {},
       });
     }
+
+    const userPasswordHash = await bcrypt.hash('password123', 10);
+    for (const u of user) {
+      await transaction.user.upsert({
+        where: { email: u.email },
+        create: {
+          ...u,
+          passwordHash: userPasswordHash
+        },
+        update: {},
+      });
+    }
+
   });
 }
 
