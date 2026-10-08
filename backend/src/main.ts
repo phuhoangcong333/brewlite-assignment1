@@ -7,8 +7,10 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    origin:
+    origin: [
+      'http://localhost:3000',
       'https://sturdy-invention-jjp77456qw9j2574g-3000.app.github.dev',
+    ],
   });
 
   app.useGlobalPipes(
