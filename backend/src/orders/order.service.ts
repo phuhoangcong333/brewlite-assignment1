@@ -37,6 +37,36 @@ export class OrderService {
     private readonly prisma: PrismaService,
     private readonly inventoryRepository: PrismaInventoryRepository,
   ) {}
+  async getOrdersForUser(userId: number) {
+    return this.prisma.order.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+  }
+
+async transitionOrderForUser(
+  orderId: number,
+  to: OrderStatus,
+  userId: number,
+): Promise<void> {
+  const order = await this.prisma.order.findUnique({
+    where: { id: orderId },
+    select: { userId: true },
+  });
+
+  if (!order || order.userId !== userId) {
+    throw new NotFoundException(`Order ${orderId} was not found`);
+  }
+
+  await this.transitionOrder(orderId, to);
+}
 
   async createOrder(
     userId: number,

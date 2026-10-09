@@ -1,14 +1,61 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import type { Request } from 'express';
 
 import { JwtGuard } from '../auth/jwt.guard';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { TransitionOrderDto } from './dto/transition-order.dto';
+import { OrderService } from './order.service';
+
+type AuthenticatedRequest = Request & {
+  user: {
+    sub: number;
+    email: string;
+  };
+};
 
 @Controller('orders')
+@UseGuards(JwtGuard)
 export class OrdersController {
-  @UseGuards(JwtGuard)
+  constructor(private readonly orderService: OrderService) {}
+
   @Get()
-  getOrders() {
+  getOrders(@Req() req: AuthenticatedRequest) {
+    return this.orderService.getOrdersForUser(req.user.sub);
+  }
+
+  @Post()
+  createOrder(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CreateOrderDto,
+  ) {
+    return this.orderService.createOrder(req.user.sub, dto.items);
+  }
+
+  @Patch(':id/status')
+  async transitionOrder(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: TransitionOrderDto,
+  ) {
+    await this.orderService.transitionOrderForUser(
+      id,
+      dto.status,
+      req.user.sub,
+    );
+
     return {
-      message: 'Bạn đã đăng nhập',
+      id,
+      status: dto.status,
     };
   }
 }
