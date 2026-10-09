@@ -1,9 +1,10 @@
+
 "use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useCartStore } from "@/lib/cart-store";
-import { formatVND } from "@/lib/pricing";
+import { calcUnitPrice, formatVND } from "@/lib/pricing";
 
 export default function CartPage() {
   const [mounted, setMounted] = useState(false);
@@ -14,12 +15,19 @@ export default function CartPage() {
   }, []);
 
   if (!mounted) {
-    return <main className="p-8 text-center text-stone-400">Đang tải giỏ hàng...</main>;
+    return (
+      <main className="p-8 text-center text-stone-400">
+        Đang tải giỏ hàng...
+      </main>
+    );
   }
 
+  // Tính tổng tiền theo giá gốc + size + topping
   const totalPrice = items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
+    (sum, item) =>
+      sum +
+      calcUnitPrice(item.price, item.size, item.toppings) * item.quantity,
+    0,
   );
 
   if (items.length === 0) {
@@ -43,60 +51,74 @@ export default function CartPage() {
     <main className="mx-auto max-w-md p-4 pb-20">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-bold text-white">Giỏ hàng</h1>
-        
+
         <button
           onClick={clearCart}
-          className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-700 transition"
+          className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700"
         >
           Xóa tất cả
         </button>
       </div>
 
       <div className="space-y-3">
-        {items.map((item) => (
-          <div
-            key={item.id}
-            className="flex items-center justify-between rounded-xl border border-stone-200 bg-white p-3 shadow-xs"
-          >
-            <div className="flex-1 pr-2">
-              <p className="font-semibold text-stone-900">{item.name}</p>
-              <p className="text-xs text-stone-500">
-                Size {item.size}
-                {item.toppings.length > 0 && ` | ${item.toppings.join(", ")}`}
-              </p>
-              <p className="mt-1 text-sm font-bold text-amber-800">
-                {formatVND(item.price * item.quantity)}
-              </p>
-            </div>
+        {items.map((item) => {
+          const unitPrice = calcUnitPrice(
+            item.price,
+            item.size,
+            item.toppings,
+          );
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => updateQuantity(item.id, -1)}
-                className="flex h-7 w-7 items-center justify-center rounded-md border border-stone-300 bg-stone-100 text-base font-bold text-black hover:bg-stone-200"
-              >
-                -
-              </button>
-              <span className="w-6 text-center text-sm font-bold text-black">
-                {item.quantity}
-              </span>
-              <button
-                type="button"
-                onClick={() => updateQuantity(item.id, 1)}
-                className="flex h-7 w-7 items-center justify-center rounded-md border border-stone-300 bg-stone-100 text-base font-bold text-black hover:bg-stone-200"
-              >
-                +
-              </button>
-              <button
-                type="button"
-                onClick={() => removeItem(item.id)}
-                className="ml-2 text-xs font-semibold text-red-600 hover:text-red-700"
-              >
-                Xóa
-              </button>
+          return (
+            <div
+              key={item.id}
+              className="flex items-center justify-between rounded-xl border border-stone-200 bg-white p-3 shadow-xs"
+            >
+              <div className="flex-1 pr-2">
+                <p className="font-semibold text-stone-900">{item.name}</p>
+
+                <p className="text-xs text-stone-500">
+                  Size {item.size}
+                  {item.toppings.length > 0 &&
+                    ` | ${item.toppings.join(", ")}`}
+                </p>
+
+                <p className="mt-1 text-sm font-bold text-amber-800">
+                  {formatVND(unitPrice * item.quantity)}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => updateQuantity(item.id, -1)}
+                  className="flex h-7 w-7 items-center justify-center rounded-md border border-stone-300 bg-stone-100 text-base font-bold text-black hover:bg-stone-200"
+                >
+                  -
+                </button>
+
+                <span className="w-6 text-center text-sm font-bold text-black">
+                  {item.quantity}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => updateQuantity(item.id, 1)}
+                  className="flex h-7 w-7 items-center justify-center rounded-md border border-stone-300 bg-stone-100 text-base font-bold text-black hover:bg-stone-200"
+                >
+                  +
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => removeItem(item.id)}
+                  className="ml-2 text-xs font-semibold text-red-600 hover:text-red-700"
+                >
+                  Xóa
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="mt-6 rounded-xl border border-stone-200 bg-white p-4 shadow-xs">
@@ -109,7 +131,7 @@ export default function CartPage() {
 
         <Link
           href="/checkout"
-          className="mt-4 block w-full rounded-lg bg-emerald-700 py-3 text-center font-bold text-white hover:bg-emerald-800 transition"
+          className="mt-4 block w-full rounded-lg bg-emerald-700 py-3 text-center font-bold text-white transition hover:bg-emerald-800"
         >
           Thanh toán
         </Link>
