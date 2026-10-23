@@ -22,7 +22,6 @@ const validTransitions: ReadonlyArray<readonly [OrderStatus, OrderStatus]> = [
   ['PAYMENT_FAILED', 'PENDING'],
   ['PAYMENT_FAILED', 'CANCELLED'],
   ['PAID', 'PREPARING'],
-  ['PAID', 'CANCELLED'],
   ['PREPARING', 'READY'],
   ['READY', 'COMPLETED'],
 ];

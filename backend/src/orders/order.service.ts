@@ -113,6 +113,7 @@ export class OrderService {
   async createOrder(
     userId: number,
     items: readonly CreateOrderItemInput[],
+    promoCode?: string,
   ): Promise<{
     id: number;
     status: OrderStatus;
@@ -145,12 +146,47 @@ export class OrderService {
           }
 
           const orderItems = buildOrderItems(products, items);
-          const total = calculateOrderTotal(orderItems);
+          const subtotal = calculateOrderTotal(orderItems);
+          let discount = 0;
+          let appliedPromoCode: string | undefined;
+
+          if (promoCode) {
+            const promotion = await transaction.promotion.findUnique({
+              where: { code: promoCode.trim().toUpperCase() },
+              select: { code: true, percent: true, expiresAt: true, usageLeft: true },
+            });
+            const now = new Date();
+            if (
+              !promotion ||
+              promotion.usageLeft <= 0 ||
+              promotion.expiresAt <= now
+            ) {
+              throw new RangeError(`Promotion ${promoCode} is invalid or expired`);
+            }
+
+            discount = Math.floor((subtotal * promotion.percent) / 100);
+            appliedPromoCode = promotion.code;
+            const consumed = await transaction.promotion.updateMany({
+              where: {
+                code: promotion.code,
+                usageLeft: { gt: 0 },
+                expiresAt: { gt: now },
+              },
+              data: { usageLeft: { decrement: 1 } },
+            });
+            if (consumed.count !== 1) {
+              throw new RetryOrderTransactionError();
+            }
+          }
+
+          const total = subtotal - discount;
 
           const order = await transaction.order.create({
             data: {
               userId,
               total,
+              discount,
+              promoCode: appliedPromoCode,
               items: { create: orderItems },
             },
             select: { id: true, status: true, total: true, discount: true },
@@ -168,10 +204,41 @@ export class OrderService {
     throw new InventoryConcurrencyException();
   }
 
-  async transitionOrder(orderId: number, to: OrderStatus): Promise<void> {
+  async listOrders(userId: number) {
+    return this.prisma.order.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        status: true,
+        total: true,
+        discount: true,
+        promoCode: true,
+        createdAt: true,
+        items: {
+          select: {
+            productId: true,
+            size: true,
+            qty: true,
+            toppings: true,
+            lineTotal: true,
+          },
+        },
+      },
+    });
+  }
+
+  async transitionOrder(
+    orderId: number,
+    to: OrderStatus,
+    userId?: number,
+  ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      const order = await transaction.order.findUnique({
-        where: { id: orderId },
+      const order = await transaction.order.findFirst({
+        where: {
+          id: orderId,
+          ...(userId === undefined ? {} : { userId }),
+        },
         select: {
           status: true,
           items: { select: { productId: true, qty: true } },

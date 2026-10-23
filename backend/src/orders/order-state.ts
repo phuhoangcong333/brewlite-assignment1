@@ -14,7 +14,7 @@ export const validTransitions: Readonly<
 > = {
   PENDING: ['PAID', 'PAYMENT_FAILED', 'CANCELLED'],
   PAYMENT_FAILED: ['PENDING', 'CANCELLED'],
-  PAID: ['PREPARING', 'CANCELLED'],
+  PAID: ['PREPARING'],
   PREPARING: ['READY'],
   READY: ['COMPLETED'],
   COMPLETED: [],

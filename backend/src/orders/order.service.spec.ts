@@ -169,7 +169,7 @@ describeDb('OrderService with PostgreSQL', () => {
     ).resolves.toEqual({ stock: 49, version: 1 });
   });
 
-  it.each(['PENDING', 'PAYMENT_FAILED', 'PAID'] as const)(
+  it.each(['PENDING', 'PAYMENT_FAILED'] as const)(
     'restores inventory when cancelling from %s',
     async (status) => {
       const { orderId, productId } = await createOrder(status);
