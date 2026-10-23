@@ -60,11 +60,6 @@ export class PaymentsService {
             where: { idempotencyKey: key },
           });
           if (existing) {
-            if (!sameRequest(existing)) {
-              throw new ConflictException(
-                'Idempotency-Key đã được dùng cho yêu cầu khác',
-              );
-            }
             const ownedOrder = await tx.order.findFirst({
               where: { id: existing.orderId, userId },
               select: { status: true },
@@ -73,6 +68,11 @@ export class PaymentsService {
               throw new NotFoundException(
                 `Không tìm thấy đơn hàng #${existing.orderId}`,
               );
+            if (!sameRequest(existing)) {
+              throw new ConflictException(
+                'Idempotency-Key đã được dùng cho yêu cầu khác',
+              );
+            }
             return this.toReplay(existing, ownedOrder.status);
           }
 
@@ -149,11 +149,8 @@ export class PaymentsService {
         .findUnique({ where: { idempotencyKey: key } })
         .catch(() => null);
       if (existing) {
-        if (!sameRequest(existing))
-          throw new ConflictException(
-            'Idempotency-Key đã được dùng cho yêu cầu khác',
-          );
-        // Phải kiểm tra chủ đơn: không để user khác đọc kết quả bằng cách dùng lại key.
+        // Check ownership before request details so another user cannot learn
+        // whether the key matches an existing payment.
         const order = await this.prisma.order.findUnique({
           where: { id: existing.orderId },
           select: { status: true, userId: true },
@@ -161,6 +158,10 @@ export class PaymentsService {
         if (!order || order.userId !== userId)
           throw new NotFoundException(
             `Không tìm thấy đơn hàng #${existing.orderId}`,
+          );
+        if (!sameRequest(existing))
+          throw new ConflictException(
+            'Idempotency-Key đã được dùng cho yêu cầu khác',
           );
         return this.toReplay(existing, order.status);
       }

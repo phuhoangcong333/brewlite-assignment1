@@ -134,6 +134,25 @@ describe('PaymentsService (unit, không DB)', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('user khác không nhận được 409 khi key trùng cả đơn và method', async () => {
+    const existing = {
+      id: 7,
+      orderId: 1,
+      amount: 25000,
+      method: 'WALLET',
+      status: 'SUCCESS',
+    };
+    const { service } = build({
+      transaction: jest.fn().mockRejectedValue({ code: 'P2002' }),
+      existingPayment: existing,
+      order: { status: 'PAID', userId: 1 },
+    });
+
+    await expect(
+      service.processPayment(wallet(1), 'k1', 2),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
   it('cùng key nhưng nội dung khác (khác orderId) -> 409', async () => {
     const existing = {
       id: 7,
@@ -146,6 +165,7 @@ describe('PaymentsService (unit, không DB)', () => {
     const { service } = build({
       transaction: jest.fn().mockRejectedValue({ code: 'P2002' }),
       existingPayment: existing,
+      order: { status: 'PAID', userId: 1 },
     });
     await expect(
       service.processPayment(wallet(2), 'k1', 1),
