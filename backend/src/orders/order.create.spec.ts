@@ -75,7 +75,11 @@ describeDb('OrderService.createOrder with PostgreSQL', () => {
     ]);
     orderIds.push(order.id);
 
-    expect(order).toMatchObject({ status: 'PENDING', total: 90_000 });
+    expect(order).toMatchObject({
+      status: 'PENDING',
+      total: 90_000,
+      discount: 0,
+    });
     await expect(
       prisma.product.findUniqueOrThrow({
         where: { id: productId },

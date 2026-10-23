@@ -14,45 +14,38 @@ const blockedStatuses: OrderStatus[] = [
   'COMPLETED',
   'CANCELLED',
 ];
+const orderItems = [{ productId: 1, qty: 2 }];
+const currentInventory = [{ productId: 1, stock: 3, version: 4 }];
+const releasedInventory = [
+  {
+    operation: 'release' as const,
+    productId: 1,
+    expectedVersion: 4,
+    qty: 2,
+    stock: 5,
+    version: 5,
+  },
+];
 
 describe('planCancel', () => {
   it.each(allowedStatuses)(
     'plans inventory release when cancelling %s',
     (status) => {
       expect(
-        planCancel(
-          status,
-          [{ productId: 1, qty: 2 }],
-          [{ productId: 1, stock: 3, version: 4 }],
-        ),
-      ).toEqual([
-        {
-          operation: 'release',
-          productId: 1,
-          expectedVersion: 4,
-          qty: 2,
-          stock: 5,
-          version: 5,
-        },
-      ]);
+        planCancel(status, orderItems, currentInventory),
+      ).toEqual(releasedInventory);
     },
   );
 
   it.each(blockedStatuses)(
     'rejects cancellation from %s without producing inventory updates',
     (status) => {
-      const current: InventorySnapshot[] = [
-        { productId: 1, stock: 3, version: 4 },
-      ];
+      const current: InventorySnapshot[] = [...currentInventory];
 
       expect(() =>
-        planCancel(
-          status,
-          [{ productId: 1, qty: 2 }],
-          current,
-        ),
+        planCancel(status, orderItems, current),
       ).toThrow(InvalidTransitionException);
-      expect(current).toEqual([{ productId: 1, stock: 3, version: 4 }]);
+      expect(current).toEqual(currentInventory);
     },
   );
 });

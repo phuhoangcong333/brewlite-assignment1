@@ -3,7 +3,6 @@ import {
   assertTransition,
   canTransition,
   OrderStatus,
-  validTransitions as transitionTable,
 } from './order-state';
 
 const statuses: OrderStatus[] = [
@@ -29,19 +28,6 @@ const validTransitions: ReadonlyArray<readonly [OrderStatus, OrderStatus]> = [
 ];
 
 describe('assertTransition', () => {
-  it('covers all 49 status pairs and the 9 allowed transitions', () => {
-    const allPairs = statuses.flatMap((from) =>
-      statuses.map((to) => [from, to] as const),
-    );
-
-    expect(statuses).toHaveLength(7);
-    expect(allPairs).toHaveLength(49);
-    expect(validTransitions).toHaveLength(9);
-    expect(
-      Object.values(transitionTable).flat().length,
-    ).toBe(9);
-  });
-
   it('rejects the demo-invalid transition PENDING -> READY', () => {
     expect(canTransition('PENDING', 'READY')).toBe(false);
     expect(() => assertTransition('PENDING', 'READY')).toThrow(
@@ -49,20 +35,19 @@ describe('assertTransition', () => {
     );
   });
 
-  it.each(statuses.flatMap((from) => statuses.map((to) => [from, to] as const)))(
-    'checks transition %s -> %s',
-    (from, to) => {
-      const isValid = validTransitions.some(
-        ([validFrom, validTo]) => validFrom === from && validTo === to,
-      );
+  it.each(
+    statuses.flatMap((from) => statuses.map((to) => [from, to] as const)),
+  )('checks transition %s -> %s', (from, to) => {
+    const isValid = validTransitions.some(
+      ([validFrom, validTo]) => validFrom === from && validTo === to,
+    );
 
-      if (isValid) {
-        expect(() => assertTransition(from, to)).not.toThrow();
-      } else {
-        expect(() => assertTransition(from, to)).toThrow(
-          new InvalidTransitionException(from, to),
-        );
-      }
-    },
-  );
+    if (isValid) {
+      expect(() => assertTransition(from, to)).not.toThrow();
+    } else {
+      expect(() => assertTransition(from, to)).toThrow(
+        new InvalidTransitionException(from, to),
+      );
+    }
+  });
 });

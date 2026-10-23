@@ -10,8 +10,8 @@ import {
   InventorySnapshot,
   InventoryUpdate,
   InventoryWant,
+  planReserve,
 } from '../inventory/inventory.plan';
-import { planReserve } from '../inventory/inventory.plan';
 import { planCancel } from './order-cancel.plan';
 import { assertTransition, OrderStatus } from './order-state';
 
@@ -31,6 +31,78 @@ export interface CreateOrderItemInput extends InventoryWant {
 
 class RetryOrderTransactionError extends Error {}
 
+function validateCreateOrderInput(
+  userId: number,
+  items: readonly CreateOrderItemInput[],
+): void {
+  if (!Number.isSafeInteger(userId) || userId <= 0) {
+    throw new RangeError('User id must be a positive integer');
+  }
+  if (items.length === 0) {
+    throw new RangeError('An order must contain at least one item');
+  }
+
+  for (const item of items) {
+    for (const topping of item.toppings ?? []) {
+      if (!VALID_TOPPINGS.has(topping)) {
+        throw new RangeError(`Unsupported topping: ${topping}`);
+      }
+    }
+  }
+}
+
+function toInventorySnapshots(
+  products: readonly { id: number; stock: number; version: number }[],
+): InventorySnapshot[] {
+  return products.map(({ id, stock, version }) => ({
+    productId: id,
+    stock,
+    version,
+  }));
+}
+
+function buildOrderItems(
+  products: readonly { id: number; price: number }[],
+  items: readonly CreateOrderItemInput[],
+) {
+  const prices = new Map(products.map(({ id, price }) => [id, price]));
+
+  return items.map((item) => {
+    const productPrice = prices.get(item.productId);
+    if (productPrice === undefined) {
+      throw new RangeError(`Product ${item.productId} was not found`);
+    }
+
+    const toppings = item.toppings ?? [];
+    const unitPrice =
+      productPrice + SIZE_PRICE[item.size] + TOPPING_PRICE * toppings.length;
+    const lineTotal = unitPrice * item.qty;
+    if (!Number.isSafeInteger(lineTotal)) {
+      throw new RangeError(
+        `Line total for product ${item.productId} exceeds the safe integer range`,
+      );
+    }
+
+    return {
+      productId: item.productId,
+      size: item.size,
+      qty: item.qty,
+      toppings,
+      lineTotal,
+    };
+  });
+}
+
+function calculateOrderTotal(
+  orderItems: readonly { lineTotal: number }[],
+): number {
+  const total = orderItems.reduce((sum, item) => sum + item.lineTotal, 0);
+  if (!Number.isSafeInteger(total)) {
+    throw new RangeError('Order total exceeds the safe integer range');
+  }
+  return total;
+}
+
 @Injectable()
 export class OrderService {
   constructor(
@@ -41,20 +113,13 @@ export class OrderService {
   async createOrder(
     userId: number,
     items: readonly CreateOrderItemInput[],
-  ): Promise<{ id: number; status: OrderStatus; total: number }> {
-    if (!Number.isSafeInteger(userId) || userId <= 0) {
-      throw new RangeError('User id must be a positive integer');
-    }
-    if (items.length === 0) {
-      throw new RangeError('An order must contain at least one item');
-    }
-    for (const item of items) {
-      for (const topping of item.toppings ?? []) {
-        if (!VALID_TOPPINGS.has(topping)) {
-          throw new RangeError(`Unsupported topping: ${topping}`);
-        }
-      }
-    }
+  ): Promise<{
+    id: number;
+    status: OrderStatus;
+    total: number;
+    discount: number;
+  }> {
+    validateCreateOrderInput(userId, items);
 
     const productIds = [...new Set(items.map(({ productId }) => productId))];
 
@@ -65,14 +130,10 @@ export class OrderService {
             where: { id: { in: productIds } },
             select: { id: true, price: true, stock: true, version: true },
           });
-          const snapshots: InventorySnapshot[] = products.map(
-            ({ id, stock, version }) => ({
-              productId: id,
-              stock,
-              version,
-            }),
+          const updates = planReserve(
+            items,
+            toInventorySnapshots(products),
           );
-          const updates = planReserve(items, snapshots);
 
           const applied =
             await this.inventoryRepository.applyUpdatesInTransaction(
@@ -83,43 +144,8 @@ export class OrderService {
             throw new RetryOrderTransactionError();
           }
 
-          const productPrices = new Map(
-            products.map(({ id, price }) => [id, price]),
-          );
-          const orderItems = items.map((item) => {
-            const productPrice = productPrices.get(item.productId);
-            if (productPrice === undefined) {
-              throw new RangeError(`Product ${item.productId} was not found`);
-            }
-            const toppings = item.toppings ?? [];
-            const unitPrice =
-              productPrice +
-              SIZE_PRICE[item.size] +
-              TOPPING_PRICE * toppings.length;
-            const lineTotal = unitPrice * item.qty;
-            if (!Number.isSafeInteger(lineTotal)) {
-              throw new RangeError(
-                `Line total for product ${item.productId} exceeds the safe integer range`,
-              );
-            }
-
-            return {
-              productId: item.productId,
-              size: item.size,
-              qty: item.qty,
-              toppings,
-              lineTotal,
-            };
-          });
-          const total = orderItems.reduce(
-            (sum, item) => sum + item.lineTotal,
-            0,
-          );
-          if (!Number.isSafeInteger(total)) {
-            throw new RangeError(
-              'Order total exceeds the safe integer range',
-            );
-          }
+          const orderItems = buildOrderItems(products, items);
+          const total = calculateOrderTotal(orderItems);
 
           const order = await transaction.order.create({
             data: {
@@ -127,7 +153,7 @@ export class OrderService {
               total,
               items: { create: orderItems },
             },
-            select: { id: true, status: true, total: true },
+            select: { id: true, status: true, total: true, discount: true },
           });
 
           return order;
@@ -168,14 +194,11 @@ export class OrderService {
           where: { id: { in: productIds } },
           select: { id: true, stock: true, version: true },
         });
-        const current: InventorySnapshot[] = products.map(
-          ({ id, stock, version }) => ({
-            productId: id,
-            stock,
-            version,
-          }),
+        releaseUpdates = planCancel(
+          from,
+          order.items,
+          toInventorySnapshots(products),
         );
-        releaseUpdates = planCancel(from, order.items, current);
       }
 
       const changed = await transaction.order.updateMany({
