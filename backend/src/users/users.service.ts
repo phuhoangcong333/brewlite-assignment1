@@ -11,7 +11,7 @@ const isUniqueViolation = (error: unknown): boolean =>
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(name: string, email: string, password: string) {
+  async create(email: string, password: string) {
     const normalizedEmail = email.trim().toLowerCase();
     const existing = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
@@ -20,8 +20,8 @@ export class UsersService {
     const passwordHash = await bcrypt.hash(password, 12);
     try {
       return await this.prisma.user.create({
-        data: { name: name.trim(), email: normalizedEmail, passwordHash },
-        select: { id: true, name: true, email: true },
+        data: { email: normalizedEmail, passwordHash },
+        select: { id: true, email: true },
       });
     } catch (error) {
       // Hai request đăng ký cùng email chạy song song: cả hai cùng qua bước kiểm tra
@@ -41,7 +41,7 @@ export class UsersService {
   async findById(id: number) {
     return this.prisma.user.findUnique({
       where: { id },
-      select: { id: true, name: true, email: true },
+      select: { id: true, email: true },
     });
   }
 }
