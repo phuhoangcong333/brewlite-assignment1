@@ -1,5 +1,8 @@
 import { InventorySnapshot, planRelease } from './inventory.plan';
 
+const currentProduct = { productId: 1, stock: 3, version: 4 };
+const oneProductRequest = [{ productId: 1, qty: 2 }];
+
 describe('planRelease', () => {
   it('restores requested quantities and increments each product version', () => {
     expect(
@@ -55,12 +58,10 @@ describe('planRelease', () => {
   });
 
   it('does not mutate the current inventory snapshots', () => {
-    const current: InventorySnapshot[] = [
-      { productId: 1, stock: 3, version: 4 },
-    ];
+    const current: InventorySnapshot[] = [currentProduct];
 
-    planRelease([{ productId: 1, qty: 2 }], current);
+    planRelease(oneProductRequest, current);
 
-    expect(current).toEqual([{ productId: 1, stock: 3, version: 4 }]);
+    expect(current).toEqual([currentProduct]);
   });
 });

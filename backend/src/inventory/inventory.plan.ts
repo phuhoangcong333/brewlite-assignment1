@@ -20,11 +20,10 @@ export interface InventoryUpdate {
   version: number;
 }
 
-export function planReserve(
+function groupQuantities(
   wants: readonly InventoryWant[],
-  current: readonly InventorySnapshot[],
-): InventoryUpdate[] {
-  const requested = new Map<number, number>();
+): Map<number, number> {
+  const quantities = new Map<number, number>();
 
   for (const want of wants) {
     if (!Number.isSafeInteger(want.qty) || want.qty <= 0) {
@@ -32,16 +31,32 @@ export function planReserve(
         `Quantity for product ${want.productId} must be a positive integer`,
       );
     }
-    const totalQty = (requested.get(want.productId) ?? 0) + want.qty;
-    if (!Number.isSafeInteger(totalQty)) {
+
+    const total = (quantities.get(want.productId) ?? 0) + want.qty;
+    if (!Number.isSafeInteger(total)) {
       throw new RangeError(
         `Total quantity for product ${want.productId} exceeds the safe integer range`,
       );
     }
-    requested.set(want.productId, totalQty);
+
+    quantities.set(want.productId, total);
   }
 
-  const inventory = new Map(current.map((item) => [item.productId, item]));
+  return quantities;
+}
+
+function indexInventory(
+  current: readonly InventorySnapshot[],
+): Map<number, InventorySnapshot> {
+  return new Map(current.map((item) => [item.productId, item]));
+}
+
+export function planReserve(
+  wants: readonly InventoryWant[],
+  current: readonly InventorySnapshot[],
+): InventoryUpdate[] {
+  const requested = groupQuantities(wants);
+  const inventory = indexInventory(current);
 
   return [...requested].map(([productId, qty]) => {
     const item = inventory.get(productId);
@@ -64,25 +79,8 @@ export function planRelease(
   items: readonly InventoryWant[],
   current: readonly InventorySnapshot[],
 ): InventoryUpdate[] {
-  const quantities = new Map<number, number>();
-
-  for (const item of items) {
-    if (!Number.isSafeInteger(item.qty) || item.qty <= 0) {
-      throw new RangeError(
-        `Quantity for product ${item.productId} must be a positive integer`,
-      );
-    }
-
-    const totalQty = (quantities.get(item.productId) ?? 0) + item.qty;
-    if (!Number.isSafeInteger(totalQty)) {
-      throw new RangeError(
-        `Total quantity for product ${item.productId} exceeds the safe integer range`,
-      );
-    }
-    quantities.set(item.productId, totalQty);
-  }
-
-  const inventory = new Map(current.map((item) => [item.productId, item]));
+  const quantities = groupQuantities(items);
+  const inventory = indexInventory(current);
 
   return [...quantities].map(([productId, qty]) => {
     const item = inventory.get(productId);

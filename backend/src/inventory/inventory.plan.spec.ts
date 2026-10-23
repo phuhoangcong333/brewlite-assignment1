@@ -4,12 +4,15 @@ import {
   planReserve,
 } from './inventory.plan';
 
+const oneProductRequest = [{ productId: 1, qty: 2 }];
+const availableProduct = [{ productId: 1, stock: 5, version: 7 }];
+
 describe('planReserve', () => {
   it('reserves stock when enough inventory is available', () => {
     expect(
       planReserve(
-        [{ productId: 1, qty: 2 }],
-        [{ productId: 1, stock: 5, version: 7 }],
+        oneProductRequest,
+        availableProduct,
       ),
     ).toEqual([
       {
@@ -26,7 +29,7 @@ describe('planReserve', () => {
   it('throws OutOfStockException when inventory is insufficient', () => {
     expect(() =>
       planReserve(
-        [{ productId: 1, qty: 2 }],
+        oneProductRequest,
         [{ productId: 1, stock: 1, version: 0 }],
       ),
     ).toThrow(OutOfStockException);
