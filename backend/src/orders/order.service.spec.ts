@@ -148,7 +148,28 @@ describeDb('OrderService with PostgreSQL', () => {
     ).resolves.toEqual({ stock: 49, version: 1 });
   });
 
-  it.each(['PENDING', 'PAYMENT_FAILED', 'PAID'] as const)(
+  it('supports the PAID -> PREPARING -> READY -> COMPLETED lifecycle', async () => {
+    const { orderId, productId } = await createOrder('PAID');
+
+    for (const status of ['PREPARING', 'READY', 'COMPLETED'] as const) {
+      await service.transitionOrder(orderId, status);
+      await expect(
+        prisma.order.findUniqueOrThrow({
+          where: { id: orderId },
+          select: { status: true },
+        }),
+      ).resolves.toEqual({ status });
+    }
+
+    await expect(
+      prisma.product.findUniqueOrThrow({
+        where: { id: productId },
+        select: { stock: true, version: true },
+      }),
+    ).resolves.toEqual({ stock: 49, version: 1 });
+  });
+
+  it.each(['PENDING', 'PAYMENT_FAILED'] as const)(
     'restores inventory when cancelling from %s',
     async (status) => {
       const { orderId, productId } = await createOrder(status);

@@ -20,7 +20,6 @@ const SECRET = 'test-secret-at-least-16-chars';
 
 type UserRow = {
   id: number;
-  name: string | null;
   email: string;
   passwordHash: string;
 };
@@ -40,7 +39,7 @@ function setup() {
       create: jest.fn(async ({ data }: { data: Omit<UserRow, 'id'> }) => {
         const row = { id: rows.length + 1, ...data };
         rows.push(row);
-        return { id: row.id, name: row.name, email: row.email };
+        return { id: row.id, email: row.email };
       }),
     },
   };
@@ -69,12 +68,11 @@ describe('Task 7 - POST /auth/register', () => {
   it('chuẩn hóa email, băm mật khẩu bằng bcrypt và không trả passwordHash', async () => {
     const { auth, rows } = setup();
     const result = await auth.register({
-      name: '  An  ',
       email: '  An@Example.COM ',
       password: '123456',
     });
 
-    expect(result.user).toEqual({ id: 1, name: 'An', email: 'an@example.com' });
+    expect(result.user).toEqual({ id: 1, email: 'an@example.com' });
     expect(JSON.stringify(result)).not.toContain('passwordHash');
     expect(rows[0].passwordHash).not.toBe('123456');
     expect(await bcrypt.compare('123456', rows[0].passwordHash)).toBe(true);
@@ -83,13 +81,11 @@ describe('Task 7 - POST /auth/register', () => {
   it('email đã tồn tại -> 409', async () => {
     const { auth } = setup();
     await auth.register({
-      name: 'An',
       email: 'an@example.com',
       password: '123456',
     });
     await expect(
       auth.register({
-        name: 'An 2',
         email: 'AN@example.com',
         password: '123456',
       }),
@@ -101,7 +97,6 @@ describe('Task 7 - POST /auth/register', () => {
     prisma.user.create.mockRejectedValueOnce({ code: 'P2002' });
     await expect(
       auth.register({
-        name: 'An',
         email: 'race@example.com',
         password: '123456',
       }),
@@ -113,7 +108,7 @@ describe('Task 7 - POST /auth/register', () => {
     const boom = new Error('db down');
     prisma.user.create.mockRejectedValueOnce(boom);
     await expect(
-      auth.register({ name: 'An', email: 'x@example.com', password: '123456' }),
+      auth.register({ email: 'x@example.com', password: '123456' }),
     ).rejects.toBe(boom);
   });
 });
@@ -122,7 +117,6 @@ describe('Task 7 - POST /auth/login', () => {
   it('đúng email/mật khẩu -> access_token (JWT) + thông tin user, không có passwordHash', async () => {
     const { auth, jwt } = setup();
     await auth.register({
-      name: 'An',
       email: 'an@example.com',
       password: '123456',
     });
@@ -132,7 +126,7 @@ describe('Task 7 - POST /auth/login', () => {
     });
 
     expect(result.token_type).toBe('Bearer');
-    expect(result.user).toEqual({ id: 1, name: 'An', email: 'an@example.com' });
+    expect(result.user).toEqual({ id: 1, email: 'an@example.com' });
     expect(JSON.stringify(result)).not.toContain('passwordHash');
     const payload = await jwt.verifyAsync<{
       sub: number;
@@ -148,7 +142,6 @@ describe('Task 7 - POST /auth/login', () => {
   it('email không phân biệt hoa thường', async () => {
     const { auth } = setup();
     await auth.register({
-      name: 'An',
       email: 'an@example.com',
       password: '123456',
     });
@@ -160,7 +153,6 @@ describe('Task 7 - POST /auth/login', () => {
   it('sai mật khẩu và email không tồn tại cùng trả 401 với cùng thông báo', async () => {
     const { auth } = setup();
     await auth.register({
-      name: 'An',
       email: 'an@example.com',
       password: '123456',
     });
@@ -182,7 +174,7 @@ describe('Task 7 - POST /auth/login', () => {
 describe('Task 7 - JwtAuthGuard (không có token thì 401)', () => {
   async function tokenFor(email = 'an@example.com') {
     const s = setup();
-    await s.auth.register({ name: 'An', email, password: '123456' });
+    await s.auth.register({ email, password: '123456' });
     const { access_token } = await s.auth.login({ email, password: '123456' });
     return { ...s, token: access_token };
   }
@@ -270,27 +262,24 @@ describe('Task 7 - validate DTO', () => {
   it('RegisterDto hợp lệ', async () => {
     expect(
       await errorsOf(RegisterDto, {
-        name: 'An',
         email: 'an@example.com',
         password: '123456',
       }),
     ).toEqual([]);
   });
-  it('RegisterDto: email sai, tên < 2 ký tự, mật khẩu < 6 ký tự', async () => {
+  it('RegisterDto: email sai, mật khẩu < 6 ký tự', async () => {
     expect(
       (
         await errorsOf(RegisterDto, {
-          name: 'A',
           email: 'khong-phai-email',
           password: '123',
         })
       ).sort(),
-    ).toEqual(['email', 'name', 'password']);
+    ).toEqual(['email', 'password']);
   });
   it('RegisterDto: field lạ (vd role) bị từ chối', async () => {
     expect(
       await errorsOf(RegisterDto, {
-        name: 'An',
         email: 'an@example.com',
         password: '123456',
         role: 'admin',

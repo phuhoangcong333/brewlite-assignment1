@@ -26,11 +26,13 @@ export class InMemoryInventoryRepository extends InventoryRepository {
   async applyUpdates(updates: readonly InventoryUpdate[]): Promise<boolean> {
     for (const update of updates) {
       const current = this.inventory.get(update.productId);
-      if (
-        !current ||
-        current.version !== update.expectedVersion ||
-        (update.operation === 'reserve' && current.stock < update.qty)
-      ) {
+      if (!current) {
+        return false;
+      }
+      if (current.version !== update.expectedVersion) {
+        return false;
+      }
+      if (update.operation === 'reserve' && current.stock < update.qty) {
         return false;
       }
     }

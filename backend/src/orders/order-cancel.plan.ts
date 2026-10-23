@@ -1,5 +1,9 @@
-import { InventorySnapshot, InventoryUpdate, planRelease } from '../inventory/inventory.plan';
-import { InventoryWant } from '../inventory/inventory.plan';
+import {
+  InventorySnapshot,
+  InventoryUpdate,
+  InventoryWant,
+  planRelease,
+} from '../inventory/inventory.plan';
 import { assertTransition, OrderStatus } from './order-state';
 
 export function planCancel(

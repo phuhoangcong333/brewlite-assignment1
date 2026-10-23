@@ -22,7 +22,6 @@ export class AuthService {
 
   async register(dto: RegisterDto) {
     const user = await this.usersService.create(
-      dto.name,
       dto.email,
       dto.password,
     );

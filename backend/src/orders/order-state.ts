@@ -14,7 +14,7 @@ export const validTransitions: Readonly<
 > = {
   PENDING: ['PAID', 'PAYMENT_FAILED', 'CANCELLED'],
   PAYMENT_FAILED: ['PENDING', 'CANCELLED'],
-  PAID: ['PREPARING', 'CANCELLED'],
+  PAID: ['PREPARING'],
   PREPARING: ['READY'],
   READY: ['COMPLETED'],
   COMPLETED: [],
@@ -22,7 +22,8 @@ export const validTransitions: Readonly<
 };
 
 export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
-  return validTransitions[from].includes(to);
+  const nextStatuses = validTransitions[from];
+  return nextStatuses.includes(to);
 }
 
 export function assertTransition(from: OrderStatus, to: OrderStatus): void {

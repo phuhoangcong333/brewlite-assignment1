@@ -12,6 +12,7 @@ describeDb('OrderService.createOrder with PostgreSQL', () => {
   const orderIds: number[] = [];
   const userIds: number[] = [];
   const productIds: number[] = [];
+  const promotionCodes: string[] = [];
 
   async function createUser(): Promise<number> {
     const user = await prisma.user.create({
@@ -55,6 +56,12 @@ describeDb('OrderService.createOrder with PostgreSQL', () => {
       await prisma.product.deleteMany({ where: { id: { in: productIds } } });
       productIds.length = 0;
     }
+    if (promotionCodes.length > 0) {
+      await prisma.promotion.deleteMany({
+        where: { code: { in: promotionCodes } },
+      });
+      promotionCodes.length = 0;
+    }
   });
 
   afterAll(async () => {
@@ -75,7 +82,11 @@ describeDb('OrderService.createOrder with PostgreSQL', () => {
     ]);
     orderIds.push(order.id);
 
-    expect(order).toMatchObject({ status: 'PENDING', total: 90_000 });
+    expect(order).toMatchObject({
+      status: 'PENDING',
+      total: 90_000,
+      discount: 0,
+    });
     await expect(
       prisma.product.findUniqueOrThrow({
         where: { id: productId },
@@ -140,5 +151,55 @@ describeDb('OrderService.createOrder with PostgreSQL', () => {
         select: { stock: true, version: true },
       }),
     ).resolves.toEqual({ stock: 48, version: 2 });
+  });
+
+  it('applies a promotion and consumes its usage inside the order transaction', async () => {
+    const userId = await createUser();
+    const productId = await createProduct(10);
+    const code = `TV5-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 7)
+      .toUpperCase()}`;
+    promotionCodes.push(code);
+    await prisma.promotion.create({
+      data: {
+        code,
+        percent: 20,
+        expiresAt: new Date(Date.now() + 60_000),
+        usageLeft: 1,
+      },
+    });
+
+    const order = await service.createOrder(
+      userId,
+      [{ productId, qty: 1, size: 'S' }],
+      code,
+    );
+    orderIds.push(order.id);
+
+    expect(order).toMatchObject({ total: 28_000, discount: 7_000 });
+    await expect(
+      prisma.order.findUniqueOrThrow({
+        where: { id: order.id },
+        select: { promoCode: true, discount: true, total: true },
+      }),
+    ).resolves.toEqual({ promoCode: code, discount: 7_000, total: 28_000 });
+    await expect(
+      prisma.promotion.findUniqueOrThrow({ where: { code } }),
+    ).resolves.toMatchObject({ usageLeft: 0 });
+
+    await expect(
+      service.createOrder(
+        userId,
+        [{ productId, qty: 1, size: 'S' }],
+        code,
+      ),
+    ).rejects.toThrow(RangeError);
+    await expect(
+      prisma.product.findUniqueOrThrow({
+        where: { id: productId },
+        select: { stock: true },
+      }),
+    ).resolves.toEqual({ stock: 9 });
   });
 });
