@@ -271,6 +271,12 @@ describeDb('PaymentsService with PostgreSQL', () => {
     });
     expect(await statusOf(orderId)).toBe('PAID');
     expect(await paymentsOf(orderId)).toHaveLength(1);
+    await expect(
+      prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { loyaltyPoints: true },
+      }),
+    ).resolves.toEqual({ loyaltyPoints: 4 });
   });
 
   it('Task 8: thẻ có số cuối 0000 -> PAYMENT_FAILED, vẫn ghi 1 payment FAILED', async () => {
@@ -292,6 +298,12 @@ describeDb('PaymentsService with PostgreSQL', () => {
     expect((await paymentsOf(orderId)).map((p) => p.status)).toEqual([
       'FAILED',
     ]);
+    await expect(
+      prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { loyaltyPoints: true },
+      }),
+    ).resolves.toEqual({ loyaltyPoints: 0 });
   });
 
   it('Task 8: sau khi thất bại, thử lại bằng key MỚI và thẻ hợp lệ -> PAID', async () => {
@@ -316,6 +328,12 @@ describeDb('PaymentsService with PostgreSQL', () => {
     });
     expect(await statusOf(orderId)).toBe('PAID');
     expect(await paymentsOf(orderId)).toHaveLength(2);
+    await expect(
+      prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { loyaltyPoints: true },
+      }),
+    ).resolves.toEqual({ loyaltyPoints: 2 });
   });
 
   it('Task 10 (idempotency): gửi 2 lần cùng Idempotency-Key -> chỉ có 1 payment, lần 2 trả kết quả cũ', async () => {
@@ -331,6 +349,12 @@ describeDb('PaymentsService with PostgreSQL', () => {
     expect(second.paymentId).toBe(first.paymentId);
     expect(second.order_status).toBe('PAID');
     expect(await paymentsOf(orderId)).toHaveLength(1);
+    await expect(
+      prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { loyaltyPoints: true },
+      }),
+    ).resolves.toEqual({ loyaltyPoints: 2 });
   });
 
   it('Task 10 (idempotency): thanh toán thất bại rồi gửi lại cùng key -> vẫn trả PAYMENT_FAILED, không tạo payment mới', async () => {
@@ -422,11 +446,11 @@ describeDb('PaymentsService with PostgreSQL', () => {
 
     await expect(
       service.processPayment(wallet(orderId), newKey(), userId),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toBeInstanceOf(ConflictException);
     expect(await paymentsOf(orderId)).toHaveLength(1);
   });
 
-  it('đơn đã CANCELLED/COMPLETED -> không thanh toán được (400)', async () => {
+  it('đơn đã CANCELLED/COMPLETED -> không thanh toán được (409)', async () => {
     const userId = await createUser();
     const orderId = await createOrder(userId);
     await prisma.order.update({
@@ -436,7 +460,7 @@ describeDb('PaymentsService with PostgreSQL', () => {
 
     await expect(
       service.processPayment(wallet(orderId), newKey(), userId),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('đơn của người khác -> 404 và đơn giữ nguyên trạng thái', async () => {

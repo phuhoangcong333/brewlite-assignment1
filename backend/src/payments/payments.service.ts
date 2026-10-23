@@ -11,6 +11,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { assertTransition } from '../orders/order-state';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 
 // P2034: Postgres hủy transaction do xung đột ghi (serialization failure).
@@ -84,16 +85,11 @@ export class PaymentsService {
             throw new NotFoundException(
               `Không tìm thấy đơn hàng #${dto.orderId}`,
             );
-          if (order.status !== 'PENDING' && order.status !== 'PAYMENT_FAILED') {
-            throw new BadRequestException(
-              `Đơn hàng #${order.id} đang ở trạng thái ${order.status}, không thể thanh toán`,
-            );
-          }
-
           // Only one active transition can win. Inventory was reserved at order creation,
           // so payment deliberately does not reserve/decrement stock again.
           // A failed order must pass through PENDING before a retry can settle it.
           if (order.status === 'PAYMENT_FAILED') {
+            assertTransition(order.status, 'PENDING');
             const reset = await tx.order.updateMany({
               where: { id: order.id, userId, status: 'PAYMENT_FAILED' },
               data: { status: 'PENDING' },
@@ -103,6 +99,9 @@ export class PaymentsService {
                 'Đơn hàng vừa được xử lý; hãy tải lại trạng thái',
               );
           }
+          if (order.status !== 'PENDING' && order.status !== 'PAYMENT_FAILED') {
+            assertTransition(order.status, targetOrderStatus);
+          }
           const changed = await tx.order.updateMany({
             where: { id: order.id, userId, status: 'PENDING' },
             data: { status: targetOrderStatus },
@@ -111,6 +110,16 @@ export class PaymentsService {
             throw new ConflictException(
               'Đơn hàng vừa được xử lý; hãy tải lại trạng thái',
             );
+
+          if (success) {
+            const earnedPoints = Math.floor(order.total / 10_000);
+            if (earnedPoints > 0) {
+              await tx.user.update({
+                where: { id: order.userId },
+                data: { loyaltyPoints: { increment: earnedPoints } },
+              });
+            }
+          }
 
           const payment = await tx.payment.create({
             data: {
