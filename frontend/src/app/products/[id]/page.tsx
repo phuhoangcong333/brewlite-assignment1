@@ -1,14 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getProduct } from "@/lib/api";
+import { useCart } from "@/lib/cart";
 import { calcUnitPrice, formatVND, SIZE_EXTRA, TOPPINGS } from "@/lib/pricing";
 import type { Product, Size } from "@/lib/types";
 
 export default function ProductDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const addToCart = useCart((s) => s.add);
+
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,11 +39,16 @@ export default function ProductDetailPage() {
   const unitPrice = calcUnitPrice(product.price, size, toppings);
 
   const handleAdd = () => {
-    // TODO: nối với store giỏ hàng của TV4 (Zustand)
-    console.log({ productId: product.id, size, toppings, qty, unitPrice });
-    alert(
-      `Đã thêm ${qty} x ${product.name} (${size}) - ${formatVND(unitPrice * qty)}`
-    );
+    addToCart({
+      productId: product.id,
+      name: product.name,
+      imageUrl: product.imageUrl,
+      basePrice: product.price,
+      size,
+      toppings,
+      qty,
+    });
+    router.push("/cart");
   };
 
   return (
@@ -49,6 +58,19 @@ export default function ProductDetailPage() {
       </Link>
       <h1 className="mt-2 text-2xl font-bold">{product.name}</h1>
       <p className="text-amber-700">Giá gốc: {formatVND(product.price)}</p>
+
+      <div className="mt-3 flex h-64 items-center justify-center rounded bg-amber-100 text-6xl">
+        {product.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={product.imageUrl}
+            alt={product.name}
+            className="h-full w-full rounded object-cover"
+          />
+        ) : (
+          "☕"
+        )}
+      </div>
 
       <section className="mt-4">
         <h2 className="mb-2 font-medium">Size</h2>
@@ -92,10 +114,7 @@ export default function ProductDetailPage() {
           -
         </button>
         <span>{qty}</span>
-        <button
-          onClick={() => setQty((q) => q + 1)}
-          className="rounded border px-3"
-        >
+        <button onClick={() => setQty((q) => q + 1)} className="rounded border px-3">
           +
         </button>
       </section>
