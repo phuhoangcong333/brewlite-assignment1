@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -11,8 +12,8 @@ import { ProductModule } from './Product/product.module';
 @Module({
   imports: [
     PrismaModule,
-    AuthModule, // POST /auth/register, POST /auth/login, GET /auth/me
-    PaymentsModule, // POST /payments
+    AuthModule,
+    PaymentsModule,
     ProductModule,
     InventoryModule,
     OrdersModule,
