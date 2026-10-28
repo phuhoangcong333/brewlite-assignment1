@@ -1,18 +1,26 @@
-import { clearSession, getToken } from "./auth";
 import type { CartItem } from "./cart";
 import { calcUnitPrice } from "./pricing";
 import type { Size } from "./types";
- 
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK !== "false";
+const USE_MOCK = false;
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
- 
-/** BE validate topping theo TÊN, không phải id. */
+
+export function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("access_token");
+}
+
+export function clearSession(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("access_token");
+}
+
 export const TOPPING_NAME: Record<string, string> = {
   pearl: "Trân châu",
   cream: "Kem",
 };
- 
+
 export type OrderStatus =
   | "PENDING"
   | "PAID"
@@ -21,30 +29,41 @@ export type OrderStatus =
   | "COMPLETED"
   | "PAYMENT_FAILED"
   | "CANCELLED";
- 
+
+export type OrderItemDetail = {
+  productId: number;
+  size: Size;
+  qty: number;
+  toppings: string[];
+  lineTotal: number;
+};
+
 export type Order = {
   id: number;
   status: OrderStatus;
   total: number;
+  discount?: number;
+  promoCode?: string | null;
   createdAt: string;
+  items?: OrderItemDetail[];
 };
- 
+
 export type PaymentInput =
   | { orderId: number; method: "WALLET"; walletId: string }
   | { orderId: number; method: "CARD"; cardNumber: string };
- 
+
 export type PaymentResult = {
   orderId: number;
   order_status: OrderStatus;
   message: string;
 };
- 
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
   }
 }
- 
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
   const res = await fetch(`${API_URL}${path}`, {
@@ -66,8 +85,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   return data as T;
 }
- 
-/* ---------- mock (lưu đơn trong localStorage) ---------- */
+
 const MOCK_KEY = "brewlite_mock_orders";
 const readMock = (): Order[] => {
   try {
@@ -78,13 +96,13 @@ const readMock = (): Order[] => {
 };
 const writeMock = (o: Order[]) =>
   localStorage.setItem(MOCK_KEY, JSON.stringify(o));
- 
+
 /* ---------- auth ---------- */
 type AuthResponse = {
   access_token: string;
   user: { id: number; email: string };
 };
- 
+
 export async function login(email: string, password: string) {
   if (USE_MOCK) {
     await delay(300);
@@ -95,7 +113,7 @@ export async function login(email: string, password: string) {
     body: JSON.stringify({ email, password }),
   });
 }
- 
+
 export async function register(email: string, password: string) {
   if (USE_MOCK) {
     await delay(300);
@@ -106,37 +124,57 @@ export async function register(email: string, password: string) {
     body: JSON.stringify({ email, password }),
   });
 }
- 
+
 /* ---------- orders ---------- */
-export async function createOrder(cart: CartItem[]): Promise<{ id: number; total: number }> {
+export async function createOrder(
+  cart: CartItem[],
+  promoCode?: string
+): Promise<{ id: number; total: number; discount?: number }> {
   if (USE_MOCK) {
     await delay(500);
-    const total = cart.reduce(
+    const subtotal = cart.reduce(
       (s, i) => s + calcUnitPrice(i.basePrice, i.size as Size, i.toppings) * i.qty,
       0
     );
+    let discount = 0;
+    const cleanPromo = promoCode?.trim().toUpperCase();
+    if (cleanPromo === "GIAM10") discount = Math.floor((subtotal * 10) / 100);
+    if (cleanPromo === "BREW20") discount = Math.floor((subtotal * 20) / 100);
+    const total = subtotal - discount;
+
     const order: Order = {
       id: Math.floor(Math.random() * 90000) + 10000,
       status: "PENDING",
       total,
+      discount,
+      promoCode: cleanPromo || null,
       createdAt: new Date().toISOString(),
+      items: cart.map((i) => ({
+        productId: i.productId,
+        size: i.size as Size,
+        qty: i.qty,
+        toppings: i.toppings.map((t) => TOPPING_NAME[t] ?? t),
+        lineTotal: calcUnitPrice(i.basePrice, i.size as Size, i.toppings) * i.qty,
+      })),
     };
     writeMock([order, ...readMock()]);
-    return { id: order.id, total };
+    return { id: order.id, total, discount };
   }
-  return request<{ id: number; total: number }>("/orders", {
+
+  return request<{ id: number; total: number; discount?: number }>("/orders", {
     method: "POST",
     body: JSON.stringify({
       items: cart.map((i) => ({
         productId: i.productId,
         qty: i.qty,
         size: i.size,
-        toppings: i.toppings.map((t) => TOPPING_NAME[t]),
+        toppings: i.toppings.map((t) => TOPPING_NAME[t] ?? t),
       })),
+      ...(promoCode?.trim() ? { promoCode: promoCode.trim() } : {}),
     }),
   });
 }
- 
+
 export async function getMyOrders(): Promise<Order[]> {
   if (USE_MOCK) {
     await delay(300);
@@ -144,7 +182,7 @@ export async function getMyOrders(): Promise<Order[]> {
   }
   return request<Order[]>("/orders/me");
 }
- 
+
 /* ---------- payment ---------- */
 export async function createPayment(
   input: PaymentInput,
@@ -169,5 +207,41 @@ export async function createPayment(
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify(input),
+  });
+}
+
+export async function updateOrderStatus(
+  orderId: number,
+  status: OrderStatus
+): Promise<void> {
+  if (USE_MOCK) {
+    await delay(300);
+    const orders = readMock();
+    const order = orders.find((o) => o.id === orderId);
+    if (order) {
+      order.status = status;
+      writeMock(orders);
+    }
+    return;
+  }
+  await request<void>(`/orders/${orderId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function cancelOrder(orderId: number): Promise<void> {
+  if (USE_MOCK) {
+    await delay(300);
+    const orders = readMock();
+    const order = orders.find((o) => o.id === orderId);
+    if (order) {
+      order.status = "CANCELLED";
+      writeMock(orders);
+    }
+    return;
+  }
+  await request<void>(`/orders/${orderId}`, {
+    method: "DELETE",
   });
 }

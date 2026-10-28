@@ -11,65 +11,40 @@ import { ApiError, createOrder, createPayment, type PaymentInput } from "@/lib/o
 type Method = "WALLET" | "CARD";
 type Step = "idle" | "creating" | "paying" | "done";
 
-const STEP_TEXT: Record<Exclude<Step, "idle">, { title: string; hint: string }> = {
-  creating: { title: "Đang tạo đơn hàng...", hint: "Vui lòng không đóng trang" },
-  paying: { title: "Đang xử lý thanh toán...", hint: "Vui lòng không đóng trang" },
-  done: { title: "Thanh toán thành công", hint: "Đang chuyển tới màn hình xác nhận..." },
-};
-
 export default function CheckoutPage() {
   const router = useRouter();
   const hydrated = useHydrated();
   const { items, clear } = useCart();
-
   const [method, setMethod] = useState<Method>("WALLET");
   const [walletId, setWalletId] = useState("");
   const [cardNumber, setCardNumber] = useState("");
+  const [promoCode, setPromoCode] = useState("");
   const [step, setStep] = useState<Step>("idle");
   const [error, setError] = useState<string | null>(null);
 
   const orderId = useRef<number | null>(null);
   const idemKey = useRef<string | null>(null);
-
   const busy = step !== "idle";
-  const goLogin = () => router.replace("/login?next=/checkout");
 
   useEffect(() => {
-    if (!getToken()) goLogin();
-  }, []);
+    if (!getToken()) router.replace("/login?next=/checkout");
+  }, [router]);
 
-  if (!hydrated) return <p className="p-4">Đang tải...</p>;
-
-  if (step === "done") {
-    return (
-      <main className="mx-auto max-w-4xl p-4">
-        <Overlay step="done" />
-      </main>
-    );
-  }
+  if (!hydrated) return <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>Đang tải...</div>;
 
   if (items.length === 0) {
     return (
-      <main className="mx-auto max-w-4xl p-4">
-        <p>Giỏ hàng trống, chưa có gì để thanh toán.</p>
-        <Link href="/" className="mt-3 inline-block underline">
+      <div style={{ maxWidth: "500px", margin: "40px auto", padding: "40px", background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: "20px", textAlign: "center" }}>
+        <p style={{ color: "#6b7280", margin: "0 0 16px 0" }}>Giỏ hàng trống, không thể thanh toán.</p>
+        <Link href="/" style={{ color: "#d97706", textDecoration: "underline", fontWeight: 600 }}>
           Quay lại menu
         </Link>
-      </main>
+      </div>
     );
   }
 
   const total = cartSubtotal(items);
   const detail = method === "WALLET" ? walletId.trim() : cardNumber.replace(/\s/g, "");
-
-  const detailError = (() => {
-    if (!detail) return null;
-    if (method === "CARD") {
-      const ok = /^[0-9][0-9 -]*[0-9]$/.test(detail) && detail.length >= 4 && detail.length <= 32;
-      return ok ? null : "Số thẻ chỉ gồm chữ số, dài 4 đến 32 ký tự";
-    }
-    return detail.length >= 4 && detail.length <= 64 ? null : "Mã ví phải từ 4 đến 64 ký tự";
-  })();
 
   const handleConfirm = async () => {
     if (busy) return;
@@ -77,7 +52,7 @@ export default function CheckoutPage() {
     try {
       if (orderId.current === null) {
         setStep("creating");
-        orderId.current = (await createOrder(items)).id;
+        orderId.current = (await createOrder(items, promoCode)).id;
       }
       setStep("paying");
       if (!idemKey.current) idemKey.current = crypto.randomUUID();
@@ -86,6 +61,7 @@ export default function CheckoutPage() {
         method === "WALLET"
           ? { orderId: orderId.current, method, walletId: detail }
           : { orderId: orderId.current, method, cardNumber: detail };
+
       const result = await createPayment(input, idemKey.current);
       idemKey.current = null;
 
@@ -96,164 +72,112 @@ export default function CheckoutPage() {
         router.replace(`/orders/${id}`);
       } else {
         setStep("idle");
-        setError(`${result.message}. Giỏ hàng vẫn được giữ, bạn có thể thử lại.`);
+        setError(`${result.message}. Vui lòng kiểm tra lại thông tin.`);
       }
     } catch (e) {
       setStep("idle");
-      if (e instanceof ApiError && e.status === 401) return goLogin();
+      if (e instanceof ApiError && e.status === 401) return router.replace("/login?next=/checkout");
       if (e instanceof ApiError && e.status === 409) idemKey.current = null;
-      setError(e instanceof Error ? e.message : "Không thanh toán được");
+      setError(e instanceof Error ? e.message : "Không thể thanh toán");
     }
   };
 
   return (
-    <main className="mx-auto max-w-4xl p-4">
-      {busy && <Overlay step={step as Exclude<Step, "idle">} />}
+    <div style={{ maxWidth: "750px", margin: "0 auto", padding: "32px 16px", boxSizing: "border-box" }}>
+      <h1 style={{ fontSize: "24px", fontWeight: "bold", marginBottom: "24px" }}>Thanh toán đơn hàng</h1>
 
-      <h1 className="mb-4 text-2xl font-bold">Thanh toán</h1>
-
-      {}
-      <ul className="space-y-3">
-        {items.map((i) => {
-          const toppingText =
-            i.toppings.length > 0
-              ? i.toppings.map((id) => TOPPINGS.find((t) => t.id === id)?.name ?? id).join(", ")
-              : "Không topping";
-
-          return (
-            <li
-              key={i.key}
-              className="flex items-center gap-5 rounded border px-4"
-              style={{ height: 96 }}
-            >
-              <div
-                className="shrink-0 overflow-hidden rounded bg-amber-100"
-                style={{ width: 72, height: 72 }}
-              >
-                {i.imageUrl ? (
-                  <img
-                    src={i.imageUrl}
-                    alt={i.name}
-                    style={{ width: 72, height: 72, objectFit: "cover" }}
-                  />
-                ) : (
-                  <span className="flex h-full w-full items-center justify-center text-3xl">☕</span>
-                )}
+      <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: "20px", padding: "32px", boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
+        {/* Danh sách món */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginBottom: "24px" }}>
+          {items.map((i) => {
+            const toppingText = i.toppings.length > 0 ? i.toppings.map((id) => TOPPINGS.find((t) => t.id === id)?.name ?? id).join(", ") : "Không topping";
+            return (
+              <div key={i.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "12px", borderBottom: "1px solid #f3f4f6" }}>
+                <div>
+                  <p style={{ margin: "0 0 2px 0", fontWeight: 600, fontSize: "14px" }}>{i.name} (Size {i.size}) x{i.qty}</p>
+                  <p style={{ margin: 0, fontSize: "12px", color: "#6b7280" }}>{toppingText}</p>
+                </div>
+                <span style={{ fontWeight: 600, fontSize: "14px" }}>{formatVND(lineTotalOf(i))}</span>
               </div>
+            );
+          })}
+        </div>
 
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{i.name}</p>
-                <p className="text-sm text-gray-500">Size {i.size}</p>
-                <p className="truncate text-sm text-gray-500">{toppingText}</p>
-              </div>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "18px", fontWeight: "bold", marginBottom: "24px", paddingTop: "12px", borderTop: "2px solid #f3f4f6" }}>
+          <span>Tổng tiền:</span>
+          <span style={{ color: "#d97706" }}>{formatVND(total)}</span>
+        </div>
 
-              <p className="shrink-0 text-center" style={{ width: 112 }}>
-                × {i.qty}
-              </p>
-
-              <p className="shrink-0 text-right font-medium" style={{ width: 120 }}>
-                {formatVND(lineTotalOf(i))}
-              </p>
-            </li>
-          );
-        })}
-      </ul>
-
-      <div className="mt-4 flex items-center justify-between text-lg">
-        <span>Tổng</span>
-        <span className="font-bold">{formatVND(total)}</span>
-      </div>
-
-      <section className="mt-6 mb-4">
-        <h2 className="mb-2 font-medium">Phương thức</h2>
-        <label className="mb-1 flex items-center gap-2">
+        {/* Mã khuyến mãi */}
+        <div style={{ marginBottom: "24px" }}>
+          <label style={{ display: "block", fontSize: "14px", fontWeight: 600, marginBottom: "8px" }}>Mã khuyến mãi</label>
           <input
-            type="radio"
+            type="text"
+            value={promoCode}
             disabled={busy}
-            checked={method === "WALLET"}
-            onChange={() => setMethod("WALLET")}
+            onChange={(e) => setPromoCode(e.target.value)}
+            placeholder="Nhập mã (VD: GIAM10, BREW20)"
+            style={{ width: "100%", padding: "12px", border: "1px solid #d1d5db", borderRadius: "10px", fontSize: "14px", boxSizing: "border-box", textTransform: "uppercase" }}
           />
-          Ví điện tử
-        </label>
-        <label className="mb-3 flex items-center gap-2">
-          <input
-            type="radio"
-            disabled={busy}
-            checked={method === "CARD"}
-            onChange={() => setMethod("CARD")}
-          />
-          Thẻ ngân hàng
-        </label>
-        {method === "WALLET" ? (
-          <input
-            value={walletId}
-            disabled={busy}
-            onChange={(e) => setWalletId(e.target.value)}
-            placeholder="Mã ví, ví dụ WALLET-1234"
-            className="w-full rounded border p-2 disabled:opacity-50"
-          />
-        ) : (
-          <input
-            value={cardNumber}
-            disabled={busy}
-            onChange={(e) => setCardNumber(e.target.value)}
-            inputMode="numeric"
-            placeholder="Số thẻ"
-            className="w-full rounded border p-2 disabled:opacity-50"
-          />
-        )}
-        {detailError && <p className="mt-1 text-sm text-red-600">{detailError}</p>}
-        <p className="mt-2 text-sm text-gray-500">Không dùng tiền mặt</p>
-      </section>
+        </div>
 
-      {error && (
-        <p role="alert" className="mb-3 rounded border border-red-300 bg-red-50 p-3 text-red-700">
-          {error}
-        </p>
-      )}
-
-      <button
-        onClick={handleConfirm}
-        disabled={busy || !detail || !!detailError}
-        className="flex w-full items-center justify-center gap-2 rounded bg-amber-600 py-3 text-white disabled:opacity-50"
-      >
-        {busy && <Spinner />}
-        {step === "creating" ? "Đang tạo đơn..." : step === "paying" ? "Đang thanh toán..." : "Xác nhận trả"}
-      </button>
-    </main>
-  );
-}
-
-function Spinner() {
-  return (
-    <span
-      aria-hidden
-      className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
-    />
-  );
-}
-
-function Overlay({ step }: { step: Exclude<Step, "idle"> }) {
-  const { title, hint } = STEP_TEXT[step];
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
-    >
-      <div className="w-72 rounded-lg border bg-neutral-900 p-6 text-center text-white">
-        {step === "done" ? (
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-600 text-2xl">
-            ✓
+        {/* Phương thức thanh toán */}
+        <div style={{ marginBottom: "24px" }}>
+          <label style={{ display: "block", fontSize: "14px", fontWeight: 600, marginBottom: "12px" }}>Phương thức thanh toán</label>
+          <div style={{ display: "flex", gap: "20px", marginBottom: "12px" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "14px" }}>
+              <input type="radio" checked={method === "WALLET"} disabled={busy} onChange={() => setMethod("WALLET")} />
+              Ví điện tử
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "14px" }}>
+              <input type="radio" checked={method === "CARD"} disabled={busy} onChange={() => setMethod("CARD")} />
+              Thẻ ngân hàng
+            </label>
           </div>
-        ) : (
-          <span
-            aria-hidden
-            className="mx-auto block h-10 w-10 animate-spin rounded-full border-4 border-amber-600 border-t-transparent"
-          />
+
+          {method === "WALLET" ? (
+            <input
+              value={walletId}
+              disabled={busy}
+              onChange={(e) => setWalletId(e.target.value)}
+              placeholder="Nhập mã ví (VD: WALLET-1234)"
+              style={{ width: "100%", padding: "12px", border: "1px solid #d1d5db", borderRadius: "10px", fontSize: "14px", boxSizing: "border-box" }}
+            />
+          ) : (
+            <input
+              value={cardNumber}
+              disabled={busy}
+              onChange={(e) => setCardNumber(e.target.value)}
+              placeholder="Nhập số thẻ (VD: 4111222233334444)"
+              style={{ width: "100%", padding: "12px", border: "1px solid #d1d5db", borderRadius: "10px", fontSize: "14px", boxSizing: "border-box" }}
+            />
+          )}
+          <p style={{ margin: "6px 0 0 0", fontSize: "12px", color: "#6b7280" }}>Mẹo: Kết thúc 4 số cuối bằng `0000` sẽ mô phỏng thanh toán thất bại[cite: 3].</p>
+        </div>
+
+        {error && (
+          <div style={{ padding: "12px", background: "#fee2e2", color: "#b91c1c", borderRadius: "10px", fontSize: "14px", marginBottom: "20px" }}>
+            {error}
+          </div>
         )}
-        <p className="mt-4 font-medium">{title}</p>
-        <p className="mt-1 text-sm text-gray-400">{hint}</p>
+
+        <button
+          onClick={handleConfirm}
+          disabled={busy || !detail}
+          style={{
+            width: "100%",
+            padding: "14px",
+            background: busy || !detail ? "#9ca3af" : "#d97706",
+            color: "#ffffff",
+            border: "none",
+            borderRadius: "12px",
+            fontWeight: 600,
+            fontSize: "15px",
+            cursor: busy || !detail ? "not-allowed" : "pointer",
+          }}
+        >
+          {busy ? "Đang xử lý giao dịch..." : "Xác nhận trả tiền"}
+        </button>
       </div>
     </div>
   );
