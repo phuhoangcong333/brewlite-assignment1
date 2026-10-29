@@ -180,7 +180,7 @@ export async function getMyOrders(): Promise<Order[]> {
     await delay(300);
     return readMock();
   }
-  return request<Order[]>("/orders/me");
+  return request<Order[]>("/orders");
 }
 
 /* ---------- payment ---------- */

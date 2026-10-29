@@ -1,4 +1,6 @@
+import type { Request } from 'express';
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -9,7 +11,6 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import type { Request } from 'express';
 
 import { JwtGuard } from '../auth/jwt.guard';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -38,6 +39,10 @@ export class OrdersController {
     @Req() req: AuthenticatedRequest,
     @Body() dto: CreateOrderDto,
   ) {
+    if (!dto.items || dto.items.length === 0) {
+      throw new BadRequestException('Danh sách sản phẩm không được để trống');
+    }
+
     return this.orderService.createOrder(req.user.sub, dto.items);
   }
 

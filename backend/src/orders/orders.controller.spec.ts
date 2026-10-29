@@ -10,18 +10,19 @@ describe('OrdersController', () => {
     const orderService = {
       createOrder: jest.fn().mockResolvedValue({ id: 10 }),
     } as unknown as OrderService;
+
     const controller = new OrdersController(orderService);
 
     await controller.createOrder(
+      { user: { sub: 42, email: 'user@example.test' } } as never,
       {
         items: [{ productId: 3, qty: 2, size: 'M', toppings: [] }],
       },
-      { user: { id: 42, email: 'user@example.test' } } as never,
     );
 
     expect(orderService.createOrder).toHaveBeenCalledWith(42, [
       { productId: 3, qty: 2, size: 'M', toppings: [] },
-    ], undefined);
+    ]);
   });
 
   it('rejects a body userId when the global whitelist policy is applied', async () => {
@@ -29,26 +30,31 @@ describe('OrdersController', () => {
       userId: 99,
       items: [{ productId: 3, qty: 1, size: 'S' }],
     });
+
     const errors = await validate(dto, {
       whitelist: true,
       forbidNonWhitelisted: true,
     });
 
-    expect(errors.some((error) => error.property === 'userId')).toBe(true);
+    expect(
+      errors.some((error) => error.property === 'userId'),
+    ).toBe(true);
   });
 
   it('rejects an empty item list', async () => {
     const orderService = {
       createOrder: jest.fn(),
     } as unknown as OrderService;
+
     const controller = new OrdersController(orderService);
 
-    await expect(
+    expect(() =>
       controller.createOrder(
+        { user: { sub: 42, email: 'user@example.test' } } as never,
         { items: [] },
-        { user: { id: 42, email: 'user@example.test' } } as never,
       ),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).toThrow(BadRequestException);
+
     expect(orderService.createOrder).not.toHaveBeenCalled();
   });
 });

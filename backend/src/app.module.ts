@@ -7,12 +7,14 @@ import { OrdersModule } from './orders/orders.module';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProductModule } from './Product/product.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
     ProductModule,
     InventoryModule,
     OrdersModule,
+    PaymentsModule,
     PrismaModule,
     AuthModule,
   ],
