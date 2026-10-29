@@ -1,5 +1,6 @@
 "use client";
 
+import { useCartStore } from "@/lib/cart-store";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -8,6 +9,8 @@ import { calcUnitPrice, formatVND, SIZE_EXTRA, TOPPINGS } from "@/lib/pricing";
 import type { Product, Size } from "@/lib/types";
 
 export default function ProductDetailPage() {
+  const [addedMessage, setAddedMessage] = useState("");
+  const addItem = useCartStore((state) => state.addItem);
   const params = useParams<{ id: string }>();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,10 +38,20 @@ export default function ProductDetailPage() {
   const unitPrice = calcUnitPrice(product.price, size, toppings);
 
   const handleAdd = () => {
-    // TODO: nối với store giỏ hàng của TV4 (Zustand)
-    console.log({ productId: product.id, size, toppings, qty, unitPrice });
-    alert(
-      `Đã thêm ${qty} x ${product.name} (${size}) - ${formatVND(unitPrice * qty)}`
+    addItem(
+      {
+        productId: String(product.id),
+        name: product.name,
+        price: product.price,
+        size,
+        toppings,
+        imageUrl: product.imageUrl ?? undefined,
+      },
+      qty,
+    );
+
+    setAddedMessage(
+      `Đã thêm ${qty} x ${product.name} (${size}) - ${formatVND(unitPrice * qty)}`,
     );
   };
 
@@ -106,6 +119,34 @@ export default function ProductDetailPage() {
       >
         Thêm vào giỏ - {formatVND(unitPrice * qty)}
       </button>
+            {addedMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4"
+        >
+          <p className="font-semibold text-green-800">
+            ✓ {addedMessage}
+          </p>
+
+          <div className="mt-3 flex items-center gap-4">
+            <Link
+              href="/cart"
+              className="rounded-lg bg-amber-800 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-900"
+            >
+              Xem giỏ hàng
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setAddedMessage("")}
+              className="text-sm text-stone-600 underline"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

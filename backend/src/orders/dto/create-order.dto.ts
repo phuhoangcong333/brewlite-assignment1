@@ -1,5 +1,7 @@
 import { Type } from 'class-transformer';
+import { Size } from '@prisma/client';
 import {
+  ArrayMinSize,
   IsArray,
   IsEnum,
   IsInt,
@@ -8,19 +10,20 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { Size } from '@prisma/client';
 
 export class CreateOrderItemDto {
+  @Type(() => Number)
   @IsInt()
   @Min(1)
-  productId: number;
+  productId!: number;
 
+  @Type(() => Number)
   @IsInt()
   @Min(1)
-  qty: number;
+  qty!: number;
 
   @IsEnum(Size)
-  size: Size;
+  size!: Size;
 
   @IsOptional()
   @IsArray()
@@ -30,11 +33,8 @@ export class CreateOrderItemDto {
 
 export class CreateOrderDto {
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
-  items: CreateOrderItemDto[];
-
-  @IsOptional()
-  @IsString()
-  promoCode?: string;
+  items!: CreateOrderItemDto[];
 }

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { getProducts } from "@/lib/api";
 import { formatVND } from "@/lib/pricing";
 import type { Product } from "@/lib/types";
+import { useCartStore } from "@/lib/cart-store";
 
 export default function MenuPage() {
   const router = useRouter();
@@ -15,6 +16,8 @@ export default function MenuPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authorized, setAuthorized] = useState(false);
+
+  const addItem = useCartStore((state) => state.addItem);
 
   const load = () => {
     setLoading(true);
@@ -38,7 +41,6 @@ export default function MenuPage() {
     load();
   }, [router]);
 
-  // Chưa kiểm tra xong thì không hiển thị menu
   if (!authorized) {
     return null;
   }
@@ -70,30 +72,48 @@ export default function MenuPage() {
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {products.map((p) => (
-          <Link
+          <div
             key={p.id}
-            href={`/products/${p.id}`}
-            className="rounded-lg border p-3 transition hover:shadow-md"
+            className="flex flex-col justify-between rounded-lg border p-3 transition hover:shadow-md"
           >
-            <div className="mb-2 flex h-28 items-center justify-center rounded bg-amber-100 text-4xl">
-              {p.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={p.imageUrl}
-                  alt={p.name}
-                  className="h-full w-full rounded object-cover"
-                />
-              ) : (
-                "☕"
-              )}
-            </div>
+            <Link href={`/products/${p.id}`}>
+              <div className="mb-2 flex h-28 items-center justify-center rounded bg-amber-100 text-4xl">
+                {p.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={p.imageUrl}
+                    alt={p.name}
+                    className="h-full w-full rounded object-cover"
+                  />
+                ) : (
+                  "☕"
+                )}
+              </div>
 
-            <p className="font-medium">{p.name}</p>
+              <p className="font-medium">{p.name}</p>
 
-            <p className="text-amber-700">
-              {formatVND(p.price)}
-            </p>
-          </Link>
+              <p className="text-amber-700">
+                {formatVND(p.price)}
+              </p>
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => {
+                addItem({
+                  productId: String(p.id),
+                  name: p.name,
+                  price: p.price,
+                  size: "M",
+                  toppings: [],
+                  imageUrl: p.imageUrl ?? undefined,
+                });
+              }}
+              className="mt-3 w-full rounded-md bg-amber-800 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-900 active:scale-95"
+            >
+              + Thêm vào giỏ
+            </button>
+          </div>
         ))}
       </div>
     </main>
