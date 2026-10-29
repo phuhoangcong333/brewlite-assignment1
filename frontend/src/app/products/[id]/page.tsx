@@ -1,17 +1,18 @@
 "use client";
 
-import { useCartStore } from "@/lib/cart-store";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getProduct } from "@/lib/api";
+import { useCart } from "@/lib/cart";
 import { calcUnitPrice, formatVND, SIZE_EXTRA, TOPPINGS } from "@/lib/pricing";
 import type { Product, Size } from "@/lib/types";
 
 export default function ProductDetailPage() {
-  const [addedMessage, setAddedMessage] = useState("");
-  const addItem = useCartStore((state) => state.addItem);
   const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const addToCart = useCart((s) => s.add);
+
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,21 +39,16 @@ export default function ProductDetailPage() {
   const unitPrice = calcUnitPrice(product.price, size, toppings);
 
   const handleAdd = () => {
-    addItem(
-      {
-        productId: String(product.id),
-        name: product.name,
-        price: product.price,
-        size,
-        toppings,
-        imageUrl: product.imageUrl ?? undefined,
-      },
+    addToCart({
+      productId: product.id,
+      name: product.name,
+      imageUrl: product.imageUrl,
+      basePrice: product.price,
+      size,
+      toppings,
       qty,
-    );
-
-    setAddedMessage(
-      `Đã thêm ${qty} x ${product.name} (${size}) - ${formatVND(unitPrice * qty)}`,
-    );
+    });
+    router.push("/cart");
   };
 
   return (
@@ -62,6 +58,19 @@ export default function ProductDetailPage() {
       </Link>
       <h1 className="mt-2 text-2xl font-bold">{product.name}</h1>
       <p className="text-amber-700">Giá gốc: {formatVND(product.price)}</p>
+
+      <div className="mt-3 flex h-64 items-center justify-center rounded bg-amber-100 text-6xl">
+        {product.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={product.imageUrl}
+            alt={product.name}
+            className="h-full w-full rounded object-cover"
+          />
+        ) : (
+          "☕"
+        )}
+      </div>
 
       <section className="mt-4">
         <h2 className="mb-2 font-medium">Size</h2>
@@ -105,10 +114,7 @@ export default function ProductDetailPage() {
           -
         </button>
         <span>{qty}</span>
-        <button
-          onClick={() => setQty((q) => q + 1)}
-          className="rounded border px-3"
-        >
+        <button onClick={() => setQty((q) => q + 1)} className="rounded border px-3">
           +
         </button>
       </section>
@@ -119,34 +125,6 @@ export default function ProductDetailPage() {
       >
         Thêm vào giỏ - {formatVND(unitPrice * qty)}
       </button>
-            {addedMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4"
-        >
-          <p className="font-semibold text-green-800">
-            ✓ {addedMessage}
-          </p>
-
-          <div className="mt-3 flex items-center gap-4">
-            <Link
-              href="/cart"
-              className="rounded-lg bg-amber-800 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-900"
-            >
-              Xem giỏ hàng
-            </Link>
-
-            <button
-              type="button"
-              onClick={() => setAddedMessage("")}
-              className="text-sm text-stone-600 underline"
-            >
-              Đóng
-            </button>
-          </div>
-        </div>
-      )}
     </main>
   );
 }

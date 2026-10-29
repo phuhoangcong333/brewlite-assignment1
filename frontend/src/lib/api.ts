@@ -2,8 +2,7 @@ import type { Product } from "./types";
 import { MOCK_PRODUCTS } from "./products.mock";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK !== "false";
-
+const USE_MOCK = false;
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export async function getProducts(): Promise<Product[]> {

@@ -1,141 +1,111 @@
-
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useCartStore } from "@/lib/cart-store";
-import { calcUnitPrice, formatVND } from "@/lib/pricing";
+import { cartSubtotal, lineTotalOf, useCart, useHydrated } from "@/lib/cart";
+import { formatVND, TOPPINGS } from "@/lib/pricing";
 
 export default function CartPage() {
-  const [mounted, setMounted] = useState(false);
-  const { items, updateQuantity, removeItem, clearCart } = useCartStore();
+  const hydrated = useHydrated();
+  const { items, setQty, remove } = useCart();
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <main className="p-8 text-center text-stone-400">
-        Đang tải giỏ hàng...
-      </main>
-    );
-  }
-
-  // Tính tổng tiền theo giá gốc + size + topping
-  const totalPrice = items.reduce(
-    (sum, item) =>
-      sum +
-      calcUnitPrice(item.price, item.size, item.toppings) * item.quantity,
-    0,
-  );
+  if (!hydrated) return <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>Đang tải giỏ hàng...</div>;
 
   if (items.length === 0) {
     return (
-      <main className="mx-auto max-w-md p-6 text-center">
-        <h1 className="mb-4 text-xl font-bold text-white">Giỏ hàng</h1>
-        <div className="rounded-xl border border-stone-700 bg-white p-8 shadow-xs">
-          <p className="text-stone-600">Giỏ hàng của bạn đang trống</p>
-          <Link
-            href="/"
-            className="mt-4 inline-block rounded-lg bg-amber-800 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-900"
-          >
-            Xem Menu gọi món
-          </Link>
-        </div>
-      </main>
+      <div style={{ width: "100%", maxWidth: "600px", margin: "40px auto", padding: "40px", background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: "20px", textAlign: "center", boxSizing: "border-box" }}>
+        <h1 style={{ fontSize: "24px", fontWeight: "bold", margin: "0 0 12px 0" }}>Giỏ hàng</h1>
+        <p style={{ color: "#6b7280", margin: "0 0 20px 0" }}>Giỏ hàng đang trống.</p>
+        <Link href="/" style={{ display: "inline-block", padding: "12px 24px", background: "#d97706", color: "#ffffff", borderRadius: "12px", fontWeight: 600, textDecoration: "none" }}>
+          Chọn món từ menu
+        </Link>
+      </div>
     );
   }
 
   return (
-    <main className="mx-auto max-w-md p-4 pb-20">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-white">Giỏ hàng</h1>
+    <div style={{ width: "100%", padding: "32px 16px", boxSizing: "border-box" }}>
+      <div style={{ width: "100%", maxWidth: "800px", margin: "0 auto" }}>
+        <h1 style={{ fontSize: "24px", fontWeight: "bold", marginBottom: "24px" }}>Giỏ hàng của bạn</h1>
 
-        <button
-          onClick={clearCart}
-          className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700"
-        >
-          Xóa tất cả
-        </button>
-      </div>
+        <div style={{ width: "100%", background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: "20px", padding: "28px", boxShadow: "0 4px 16px rgba(0,0,0,0.04)", boxSizing: "border-box" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {items.map((i) => {
+              const toppingText =
+                i.toppings.length > 0
+                  ? i.toppings.map((id) => TOPPINGS.find((t) => t.id === id)?.name ?? id).join(", ")
+                  : "Không topping";
 
-      <div className="space-y-3">
-        {items.map((item) => {
-          const unitPrice = calcUnitPrice(
-            item.price,
-            item.size,
-            item.toppings,
-          );
+              return (
+                <div key={i.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "16px", borderBottom: "1px solid #f3f4f6" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                    <div style={{ width: 64, height: 64, minWidth: 64, borderRadius: "12px", background: "#fef3c7", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {i.imageUrl ? (
+                        <img src={i.imageUrl} alt={i.name} style={{ width: 64, height: 64, objectFit: "cover" }} />
+                      ) : (
+                        <span>☕</span>
+                      )}
+                    </div>
+                    <div>
+                      <p style={{ margin: "0 0 4px 0", fontWeight: 600, fontSize: "15px" }}>{i.name}</p>
+                      <p style={{ margin: "0 0 2px 0", fontSize: "13px", color: "#6b7280" }}>Size {i.size}</p>
+                      <p style={{ margin: 0, fontSize: "12px", color: "#9ca3af" }}>{toppingText}</p>
+                    </div>
+                  </div>
 
-          return (
-            <div
-              key={item.id}
-              className="flex items-center justify-between rounded-xl border border-stone-200 bg-white p-3 shadow-xs"
-            >
-              <div className="flex-1 pr-2">
-                <p className="font-semibold text-stone-900">{item.name}</p>
+                  <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                    <div style={{ display: "flex", alignItems: "center", border: "1px solid #d1d5db", borderRadius: "8px", overflow: "hidden" }}>
+                      <button
+                        onClick={() => setQty(i.key, Math.max(1, i.qty - 1))}
+                        style={{ padding: "4px 10px", background: "#f9fafb", border: "none", cursor: "pointer", fontWeight: "bold" }}
+                      >
+                        -
+                      </button>
+                      <span style={{ padding: "0 10px", fontSize: "14px", fontWeight: 600 }}>{i.qty}</span>
+                      <button
+                        onClick={() => setQty(i.key, i.qty + 1)}
+                        style={{ padding: "4px 10px", background: "#f9fafb", border: "none", cursor: "pointer", fontWeight: "bold" }}
+                      >
+                        +
+                      </button>
+                    </div>
+                    <span style={{ fontWeight: 700, fontSize: "15px", width: "90px", textAlign: "right" }}>{formatVND(lineTotalOf(i))}</span>
+                    <button
+                      onClick={() => remove(i.key)}
+                      style={{ background: "none", border: "none", color: "#dc2626", fontSize: "13px", cursor: "pointer", textDecoration: "underline" }}
+                    >
+                      Xóa
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
-                <p className="text-xs text-stone-500">
-                  Size {item.size}
-                  {item.toppings.length > 0 &&
-                    ` | ${item.toppings.join(", ")}`}
-                </p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "24px", paddingTop: "16px", borderTop: "2px solid #f3f4f6", fontSize: "18px" }}>
+            <span style={{ fontWeight: 600 }}>Tổng cộng:</span>
+            <span style={{ fontWeight: "bold", color: "#d97706" }}>{formatVND(cartSubtotal(items))}</span>
+          </div>
 
-                <p className="mt-1 text-sm font-bold text-amber-800">
-                  {formatVND(unitPrice * item.quantity)}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => updateQuantity(item.id, -1)}
-                  className="flex h-7 w-7 items-center justify-center rounded-md border border-stone-300 bg-stone-100 text-base font-bold text-black hover:bg-stone-200"
-                >
-                  -
-                </button>
-
-                <span className="w-6 text-center text-sm font-bold text-black">
-                  {item.quantity}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() => updateQuantity(item.id, 1)}
-                  className="flex h-7 w-7 items-center justify-center rounded-md border border-stone-300 bg-stone-100 text-base font-bold text-black hover:bg-stone-200"
-                >
-                  +
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => removeItem(item.id)}
-                  className="ml-2 text-xs font-semibold text-red-600 hover:text-red-700"
-                >
-                  Xóa
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="mt-6 rounded-xl border border-stone-200 bg-white p-4 shadow-xs">
-        <div className="flex items-center justify-between border-b border-stone-200 pb-3 text-base">
-          <span className="font-bold text-black">Tổng tiền:</span>
-          <span className="text-lg font-bold text-black">
-            {formatVND(totalPrice)}
-          </span>
+          <Link
+            href="/checkout"
+            style={{
+              display: "block",
+              width: "100%",
+              marginTop: "24px",
+              padding: "14px",
+              background: "#d97706",
+              color: "#ffffff",
+              textAlign: "center",
+              borderRadius: "12px",
+              fontWeight: 600,
+              textDecoration: "none",
+              boxSizing: "border-box",
+            }}
+          >
+            Tiến hành thanh toán
+          </Link>
         </div>
-
-        <Link
-          href="/checkout"
-          className="mt-4 block w-full rounded-lg bg-emerald-700 py-3 text-center font-bold text-white transition hover:bg-emerald-800"
-        >
-          Thanh toán
-        </Link>
       </div>
-    </main>
+    </div>
   );
 }
