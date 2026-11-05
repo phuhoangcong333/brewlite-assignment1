@@ -43,7 +43,11 @@ export class OrdersController {
       throw new BadRequestException('Danh sách sản phẩm không được để trống');
     }
 
-    return this.orderService.createOrder(req.user.sub, dto.items);
+    return this.orderService.createOrder(
+      req.user.sub,
+      dto.items,
+      dto.promoCode,
+    );
   }
 
   @Patch(':id/status')
