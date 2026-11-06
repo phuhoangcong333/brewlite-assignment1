@@ -51,17 +51,9 @@ export class OrdersController {
       throw new BadRequestException('Danh sách sản phẩm không được để trống');
     }
 
-<<<<<<< HEAD
     return dto.promoCode === undefined
       ? this.orderService.createOrder(req.user.sub, dto.items)
       : this.orderService.createOrder(req.user.sub, dto.items, dto.promoCode);
-=======
-    return this.orderService.createOrder(
-      req.user.sub,
-      dto.items,
-      dto.promoCode,
-    );
->>>>>>> origin/demo
   }
 
   @Patch(':id/status')

@@ -17,15 +17,12 @@ describe('OrdersController', () => {
       { user: { sub: 42, email: 'user@example.test' } } as never,
       {
         items: [{ productId: 3, qty: 2, size: 'M', toppings: [] }],
-        promoCode: 'GIAM10',
       },
     );
 
-    expect(orderService.createOrder).toHaveBeenCalledWith(
-      42,
-      [{ productId: 3, qty: 2, size: 'M', toppings: [] }],
-      'GIAM10',
-    );
+    expect(orderService.createOrder).toHaveBeenCalledWith(42, [
+      { productId: 3, qty: 2, size: 'M', toppings: [] },
+    ]);
   });
 
   it('rejects a body userId when the global whitelist policy is applied', async () => {
