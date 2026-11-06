@@ -1,15 +1,39 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
+import { getToken } from '@/lib/auth';
+
+function subscribeToAuth(callback: () => void) {
+  window.addEventListener('auth-changed', callback);
+  window.addEventListener('storage', callback);
+  return () => {
+    window.removeEventListener('auth-changed', callback);
+    window.removeEventListener('storage', callback);
+  };
+}
+
+function isAuthenticated() {
+  return getToken() !== null;
+}
 
 export default function LoginPage() {
   const router = useRouter();
-
+  const authenticated = useSyncExternalStore(
+    subscribeToAuth,
+    isAuthenticated,
+    () => false,
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (authenticated) {
+      router.replace('/');
+    }
+  }, [authenticated, router]);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -57,6 +81,8 @@ export default function LoginPage() {
       setLoading(false);
     }
   }
+
+  if (authenticated) return null;
 
   return (
     <main className="min-h-screen bg-gray-100 flex items-center justify-center px-4">

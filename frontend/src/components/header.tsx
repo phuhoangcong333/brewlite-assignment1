@@ -2,31 +2,40 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cartCount, useCart, useHydrated } from "@/lib/cart";
 import { getCurrentUser, getToken } from "@/lib/orders-api";
 
 export default function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const hydrated = useHydrated();
   const count = useCart((s) => cartCount(s.items));
   const [isStaff, setIsStaff] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     let active = true;
     const refreshRole = () => {
       if (!getToken()) {
         setIsStaff(false);
+        setIsAuthenticated(false);
         return;
       }
 
       void getCurrentUser()
         .then((user) => {
-          if (active) setIsStaff(user.role === "STAFF");
+          if (active) {
+            setIsStaff(user.role === "STAFF");
+            setIsAuthenticated(true);
+          }
         })
         .catch(() => {
-          if (active) setIsStaff(false);
+          if (active) {
+            setIsStaff(false);
+            setIsAuthenticated(false);
+          }
         });
     };
 
@@ -39,6 +48,14 @@ export default function Header() {
       window.removeEventListener("storage", refreshRole);
     };
   }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("access_token");
+    window.dispatchEvent(new Event("auth-changed"));
+    setIsAuthenticated(false);
+    setIsStaff(false);
+    router.replace("/login");
+  };
 
   const hideNavigation =
     pathname === "/login" || pathname === "/register";
@@ -178,6 +195,25 @@ export default function Header() {
                 </span>
               )}
             </Link>
+
+            {isAuthenticated && (
+              <button
+                type="button"
+                onClick={handleLogout}
+                style={{
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "10px",
+                  background: "#ffffff",
+                  color: "#4b5563",
+                  fontSize: "14px",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                Đăng xuất
+              </button>
+            )}
           </div>
         )}
       </div>
