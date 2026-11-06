@@ -18,6 +18,15 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Trang nhân viên cập nhật trạng thái
+
+Mở `http://localhost:3000/staff/orders` để xem các đơn có thể xử lý và chuyển trạng thái theo thứ tự:
+`PAID` → `PREPARING` → `READY` → `COMPLETED`. Trang tự làm mới mỗi 7 giây
+và cũng hỗ trợ làm mới thủ công.
+
+Tài khoản phải có role `STAFF`; tài khoản khách hàng không được truy cập. Cấu hình
+tài khoản nhân viên và chạy migration/seed theo hướng dẫn trong README backend.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More

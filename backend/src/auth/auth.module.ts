@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { JwtGuard } from './jwt.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { StaffGuard } from './staff.guard';
 import { getJwtSecret } from './jwt.config';
 import { UsersModule } from '../users/users.module';
 
@@ -17,7 +19,7 @@ import { UsersModule } from '../users/users.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard],
-  exports: [AuthService, JwtAuthGuard, JwtModule],
+  providers: [AuthService, JwtGuard, JwtAuthGuard, StaffGuard],
+  exports: [AuthService, JwtGuard, JwtAuthGuard, JwtModule, StaffGuard],
 })
 export class AuthModule {}

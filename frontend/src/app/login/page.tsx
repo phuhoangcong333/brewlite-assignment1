@@ -43,8 +43,10 @@ export default function LoginPage() {
       }
 
       localStorage.setItem('access_token', data.access_token);
+      window.dispatchEvent(new Event('auth-changed'));
 
-      router.push('/');
+      const next = new URLSearchParams(window.location.search).get('next');
+      router.push(next?.startsWith('/') && !next.startsWith('//') ? next : '/');
     } catch (err) {
       setError(
         err instanceof Error

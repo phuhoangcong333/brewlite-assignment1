@@ -22,6 +22,7 @@ type UserRow = {
   id: number;
   email: string;
   passwordHash: string;
+  role: 'CUSTOMER' | 'STAFF';
 };
 
 function setup() {
@@ -36,10 +37,10 @@ function setup() {
               : u.id === where.id,
           ) ?? null,
       ),
-      create: jest.fn(async ({ data }: { data: Omit<UserRow, 'id'> }) => {
-        const row = { id: rows.length + 1, ...data };
+      create: jest.fn(async ({ data }: { data: Omit<UserRow, 'id' | 'role'> }) => {
+        const row = { id: rows.length + 1, ...data, role: 'CUSTOMER' as const };
         rows.push(row);
-        return { id: row.id, email: row.email };
+        return { id: row.id, email: row.email, role: row.role };
       }),
     },
   };
@@ -72,7 +73,11 @@ describe('Task 7 - POST /auth/register', () => {
       password: '123456',
     });
 
-    expect(result.user).toEqual({ id: 1, email: 'an@example.com' });
+    expect(result.user).toEqual({
+      id: 1,
+      email: 'an@example.com',
+      role: 'CUSTOMER',
+    });
     expect(JSON.stringify(result)).not.toContain('passwordHash');
     expect(rows[0].passwordHash).not.toBe('123456');
     expect(await bcrypt.compare('123456', rows[0].passwordHash)).toBe(true);
@@ -126,7 +131,11 @@ describe('Task 7 - POST /auth/login', () => {
     });
 
     expect(result.token_type).toBe('Bearer');
-    expect(result.user).toEqual({ id: 1, email: 'an@example.com' });
+    expect(result.user).toEqual({
+      id: 1,
+      email: 'an@example.com',
+      role: 'CUSTOMER',
+    });
     expect(JSON.stringify(result)).not.toContain('passwordHash');
     const payload = await jwt.verifyAsync<{
       sub: number;
@@ -246,7 +255,11 @@ describe('Task 7 - JwtAuthGuard (không có token thì 401)', () => {
       authorization: `Bearer ${token}`,
     });
     await expect(guard.canActivate(context)).resolves.toBe(true);
-    expect(request.user).toEqual({ id: 1, email: 'an@example.com' });
+    expect(request.user).toEqual({
+      id: 1,
+      email: 'an@example.com',
+      role: 'CUSTOMER',
+    });
   });
 });
 

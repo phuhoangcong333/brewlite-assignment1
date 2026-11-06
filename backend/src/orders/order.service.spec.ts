@@ -169,6 +169,20 @@ describeDb('OrderService with PostgreSQL', () => {
     ).resolves.toEqual({ stock: 49, version: 1 });
   });
 
+  it('does not allow staff transitions to change payment-managed statuses', async () => {
+    const { orderId } = await createOrder('PENDING');
+
+    await expect(
+      service.transitionOrderForStaff(orderId, 'PAID'),
+    ).rejects.toBeInstanceOf(InvalidTransitionException);
+    await expect(
+      prisma.order.findUniqueOrThrow({
+        where: { id: orderId },
+        select: { status: true },
+      }),
+    ).resolves.toEqual({ status: 'PENDING' });
+  });
+
   it.each(['PENDING', 'PAYMENT_FAILED'] as const)(
     'restores inventory when cancelling from %s',
     async (status) => {

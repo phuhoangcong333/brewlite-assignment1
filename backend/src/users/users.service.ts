@@ -21,7 +21,7 @@ export class UsersService {
     try {
       return await this.prisma.user.create({
         data: { email: normalizedEmail, passwordHash },
-        select: { id: true, email: true },
+        select: { id: true, email: true, role: true },
       });
     } catch (error) {
       // Hai request đăng ký cùng email chạy song song: cả hai cùng qua bước kiểm tra
@@ -41,7 +41,7 @@ export class UsersService {
   async findById(id: number) {
     return this.prisma.user.findUnique({
       where: { id },
-      select: { id: true, email: true },
+      select: { id: true, email: true, role: true },
     });
   }
 }

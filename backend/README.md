@@ -50,7 +50,15 @@ npm run db:seed
 ```
 
 Seed tạo 8 sản phẩm với stock ban đầu 50, hai promotion `GIAM10` và `BREW20`,
-và user mẫu `test@gmail.com` với password `password123`.
+và user mẫu `test@gmail.com` với password `password123`. Mọi user đăng ký mới
+có role `CUSTOMER`. Để provision tài khoản nhân viên, đặt `STAFF_EMAIL` và
+`STAFF_PASSWORD` trong `.env` rồi chạy migration và seed; seed tạo hoặc cập nhật
+tài khoản đó thành `STAFF` và đặt mật khẩu theo biến môi trường. Không dùng
+mật khẩu mẫu trong môi trường thật.
+
+Các API `GET /orders/staff` và `PATCH /orders/:id/status` yêu cầu JWT cùng role
+`STAFF`. Tài khoản khách hàng nhận HTTP 403. Trang nhân viên nằm ở
+`http://localhost:3000/staff/orders` khi frontend đang chạy.
 
 Mở Prisma Studio:
 
@@ -128,8 +136,9 @@ JWT guard xác thực user và đặt vào request:
 | GET | `/auth/me` | JWT | User hiện tại |
 | POST | `/orders` | JWT | Tạo order, giữ stock |
 | GET | `/orders/me` | JWT | Lịch sử order của user |
+| GET | `/orders/staff` | JWT + STAFF | Danh sách đơn nhân viên cần xử lý |
 | DELETE | `/orders/:id` | JWT | Hủy order |
-| PATCH | `/orders/:id/status` | JWT | Chuyển status barista |
+| PATCH | `/orders/:id/status` | JWT + STAFF | Chuyển status barista |
 | POST | `/payments` | JWT | Thanh toán mock |
 
 Orders controller có thêm alias prefix `/order`. Contract khuyến nghị dùng

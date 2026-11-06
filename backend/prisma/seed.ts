@@ -38,6 +38,17 @@ const user = [
 
 
 async function seed(): Promise<void> {
+  const staffEmail = process.env.STAFF_EMAIL?.trim().toLowerCase();
+  const staffPassword = process.env.STAFF_PASSWORD;
+  if (Boolean(staffEmail) !== Boolean(staffPassword)) {
+    throw new Error('STAFF_EMAIL and STAFF_PASSWORD must be configured together');
+  }
+  if (staffPassword !== undefined && staffPassword.length < 6) {
+    throw new Error('STAFF_PASSWORD must contain at least 6 characters');
+  }
+  const staffPasswordHash =
+    staffPassword === undefined ? undefined : await bcrypt.hash(staffPassword, 12);
+
   await prisma.$transaction(async (transaction) => {
     const existingProducts = await transaction.product.findMany({
       where: { name: { in: products.map(({ name }) => name) } },
@@ -74,6 +85,17 @@ async function seed(): Promise<void> {
       });
     }
 
+    if (staffEmail && staffPasswordHash) {
+      await transaction.user.upsert({
+        where: { email: staffEmail },
+        create: {
+          email: staffEmail,
+          passwordHash: staffPasswordHash,
+          role: 'STAFF',
+        },
+        update: { passwordHash: staffPasswordHash, role: 'STAFF' },
+      });
+    }
   });
 }
 

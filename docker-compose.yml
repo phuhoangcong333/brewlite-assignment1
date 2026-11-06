@@ -23,6 +23,8 @@ services:
     build: ./backend
     container_name: brewlite-backend
     restart: unless-stopped
+    env_file:
+      - ./backend/.env
     environment:
       # Trong mạng Docker, backend gọi database bằng tên dịch vụ "db" và cổng 5432
       DATABASE_URL: postgresql://brewlite:brewlite123@db:5432/brewlite?schema=public

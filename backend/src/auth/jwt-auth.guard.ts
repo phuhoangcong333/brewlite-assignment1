@@ -12,6 +12,7 @@ type AuthenticatedRequest = Request & {
   user?: {
     id: number;
     email: string;
+    role: 'CUSTOMER' | 'STAFF';
   };
 };
 
@@ -44,6 +45,7 @@ export class JwtAuthGuard implements CanActivate {
       request.user = {
         id: user.id,
         email: user.email,
+        role: user.role,
       };
       return true;
     } catch {

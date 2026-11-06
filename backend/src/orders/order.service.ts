@@ -3,6 +3,7 @@ import { Size } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   InventoryConcurrencyException,
+  InvalidTransitionException,
   OrderTransitionConflictException,
 } from '../common/errors';
 import { PrismaInventoryRepository } from '../inventory/prisma-inventory.repository';
@@ -123,22 +124,55 @@ export class OrderService {
     });
   }
 
-async transitionOrderForUser(
-  orderId: number,
-  to: OrderStatus,
-  userId: number,
-): Promise<void> {
-  const order = await this.prisma.order.findUnique({
-    where: { id: orderId },
-    select: { userId: true },
-  });
-
-  if (!order || order.userId !== userId) {
-    throw new NotFoundException(`Order ${orderId} was not found`);
+  async getOrdersForStaff() {
+    return this.prisma.order.findMany({
+      where: { status: { in: ['PAID', 'PREPARING', 'READY'] } },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
   }
 
-  await this.transitionOrder(orderId, to);
-}
+  async transitionOrderForUser(
+    orderId: number,
+    to: OrderStatus,
+    userId: number,
+  ): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { userId: true },
+    });
+
+    if (!order || order.userId !== userId) {
+      throw new NotFoundException(`Order ${orderId} was not found`);
+    }
+
+    await this.transitionOrder(orderId, to);
+  }
+
+  async transitionOrderForStaff(
+    orderId: number,
+    to: OrderStatus,
+  ): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { status: true },
+    });
+    if (!order) {
+      throw new NotFoundException(`Order ${orderId} was not found`);
+    }
+
+    if (!['PREPARING', 'READY', 'COMPLETED'].includes(to)) {
+      throw new InvalidTransitionException(order.status, to);
+    }
+
+    await this.transitionOrder(orderId, to);
+  }
 
   async createOrder(
     userId: number,

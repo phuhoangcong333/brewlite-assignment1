@@ -31,7 +31,12 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  me(@Req() request: Request & { user?: { id: number; email: string } }) {
+  me(
+    @Req()
+    request: Request & {
+      user?: { id: number; email: string; role: 'CUSTOMER' | 'STAFF' };
+    },
+  ) {
     return {
       user: request.user,
     };

@@ -12,12 +12,15 @@ brewlite/
 
 ## Chạy
 1. Mở Docker Desktop, đợi biểu tượng xanh.
-2. Ở thư mục gốc `brewlite`:
+2. Tạo `backend/.env` từ `backend/.env.example`, đặt `JWT_SECRET`,
+   `STAFF_EMAIL` và `STAFF_PASSWORD`.
+3. Ở thư mục gốc `brewlite`:
    ```
-   docker compose up --build
+   docker compose up --build -d
    ```
-   Lần đầu mất vài phút (tải ảnh, cài thư viện, build).
-3. Mở:
+   Lệnh này build image, khởi động database; backend tự chạy migration và seed
+   trước khi mở API. Lần đầu mất vài phút (tải image, cài thư viện, build).
+4. Mở:
    - Web: http://localhost:3000
    - API: http://localhost:3001/products (phải ra 8 món)
 
@@ -25,7 +28,7 @@ brewlite/
 | Lệnh | Việc |
 |---|---|
 | `docker compose up --build` | Dựng và chạy (thấy log) |
-| `docker compose up -d --build` | Dựng và chạy nền |
+| `docker compose up --build -d` | Dựng và chạy nền; backend tự migrate/seed |
 | `docker compose ps` | Xem 3 dịch vụ có chạy không |
 | `docker compose logs backend` | Xem log backend khi lỗi |
 | `docker compose down` | Tắt (giữ dữ liệu) |

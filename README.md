@@ -333,6 +333,10 @@ docker compose build
 docker compose up --build -d
 ```
 
+Backend sẽ tự chạy `prisma migrate deploy` và `prisma db seed` khi khởi động,
+trước khi mở API. Đảm bảo đã tạo `backend/.env` từ `.env.example`; Compose tự
+nạp file này để seed tài khoản nhân viên.
+
 ### 10.3. Kiểm tra container
 
 ``` powershell

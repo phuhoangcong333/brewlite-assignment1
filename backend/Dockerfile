@@ -15,5 +15,5 @@ RUN npx prisma generate && npm run build
 
 EXPOSE 3001
 
-# 1) tạo/cập nhật bảng  2) nhập dữ liệu mẫu (bỏ qua nếu lỗi)  3) chạy server
-CMD ["sh", "-c", "npx prisma migrate deploy && (npx prisma db seed || echo 'Bo qua seed') && if [ -f dist/main.js ]; then node dist/main.js; else node dist/src/main.js; fi"]
+# Tạo/cập nhật bảng, nhập dữ liệu mẫu rồi mới khởi động server.
+CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && if [ -f dist/main.js ]; then node dist/main.js; else node dist/src/main.js; fi"]

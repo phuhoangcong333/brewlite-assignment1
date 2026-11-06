@@ -30,8 +30,17 @@ export type OrderStatus =
   | "PAYMENT_FAILED"
   | "CANCELLED";
 
+export type UserRole = "CUSTOMER" | "STAFF";
+
+export type AuthenticatedUser = {
+  id: number;
+  email: string;
+  role: UserRole;
+};
+
 export type OrderItemDetail = {
   productId: number;
+  product?: { name: string } | null;
   size: Size;
   qty: number;
   toppings: string[];
@@ -181,6 +190,15 @@ export async function getMyOrders(): Promise<Order[]> {
     return readMock();
   }
   return request<Order[]>("/orders");
+}
+
+export async function getCurrentUser(): Promise<AuthenticatedUser> {
+  const response = await request<{ user: AuthenticatedUser }>("/auth/me");
+  return response.user;
+}
+
+export async function getStaffOrders(): Promise<Order[]> {
+  return request<Order[]>("/orders/staff");
 }
 
 /* ---------- payment ---------- */

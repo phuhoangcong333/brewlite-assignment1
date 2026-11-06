@@ -3,12 +3,42 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { cartCount, useCart, useHydrated } from "@/lib/cart";
+import { getCurrentUser, getToken } from "@/lib/orders-api";
 
 export default function Header() {
   const pathname = usePathname();
   const hydrated = useHydrated();
   const count = useCart((s) => cartCount(s.items));
+  const [isStaff, setIsStaff] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const refreshRole = () => {
+      if (!getToken()) {
+        setIsStaff(false);
+        return;
+      }
+
+      void getCurrentUser()
+        .then((user) => {
+          if (active) setIsStaff(user.role === "STAFF");
+        })
+        .catch(() => {
+          if (active) setIsStaff(false);
+        });
+    };
+
+    refreshRole();
+    window.addEventListener("auth-changed", refreshRole);
+    window.addEventListener("storage", refreshRole);
+    return () => {
+      active = false;
+      window.removeEventListener("auth-changed", refreshRole);
+      window.removeEventListener("storage", refreshRole);
+    };
+  }, []);
 
   const hideNavigation =
     pathname === "/login" || pathname === "/register";
@@ -56,6 +86,24 @@ export default function Header() {
               whiteSpace: "nowrap",
             }}
           >
+            {isStaff && (
+              <Link
+                href="/staff/orders"
+                style={{
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "10px",
+                  fontSize: "14px",
+                  fontWeight: 500,
+                  color: "#4b5563",
+                  textDecoration: "none",
+                  boxSizing: "border-box",
+                }}
+              >
+                Nhân viên
+              </Link>
+            )}
+
             <Link
               href="/orders"
               style={{

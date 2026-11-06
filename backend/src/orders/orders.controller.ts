@@ -16,6 +16,7 @@ import {
 } from '@nestjs/common';
 
 import { JwtGuard } from '../auth/jwt.guard';
+import { StaffGuard } from '../auth/staff.guard';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { TransitionOrderDto } from './dto/transition-order.dto';
 import { OrderService } from './order.service';
@@ -42,6 +43,12 @@ export class OrdersController {
     return this.orderService.getOrdersForUser(req.user.sub);
   }
 
+  @Get('staff')
+  @UseGuards(StaffGuard)
+  getOrdersForStaff() {
+    return this.orderService.getOrdersForStaff();
+  }
+
   @Post()
   createOrder(
     @Req() req: AuthenticatedRequest,
@@ -51,31 +58,21 @@ export class OrdersController {
       throw new BadRequestException('Danh sách sản phẩm không được để trống');
     }
 
-<<<<<<< HEAD
+
     return dto.promoCode === undefined
       ? this.orderService.createOrder(req.user.sub, dto.items)
       : this.orderService.createOrder(req.user.sub, dto.items, dto.promoCode);
-=======
-    return this.orderService.createOrder(
-      req.user.sub,
-      dto.items,
-      dto.promoCode,
-    );
->>>>>>> origin/demo
+
   }
 
   @Patch(':id/status')
+  @UseGuards(StaffGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async transitionOrder(
-    @Req() req: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: TransitionOrderDto,
   ) {
-    await this.orderService.transitionOrderForUser(
-      id,
-      dto.status,
-      req.user.sub,
-    );
+    await this.orderService.transitionOrderForStaff(id, dto.status);
 
   }
 

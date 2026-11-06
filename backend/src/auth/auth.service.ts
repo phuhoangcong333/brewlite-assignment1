@@ -43,7 +43,7 @@ export class AuthService {
         email: user.email,
       }),
       token_type: 'Bearer',
-      user: { id: user.id, email: user.email },
+      user: { id: user.id, email: user.email, role: user.role },
     };
   }
 
