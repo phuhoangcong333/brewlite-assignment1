@@ -3,7 +3,10 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   Patch,
@@ -34,6 +37,11 @@ export class OrdersController {
     return this.orderService.getOrdersForUser(req.user.sub);
   }
 
+  @Get('me')
+  getMyOrders(@Req() req: AuthenticatedRequest) {
+    return this.orderService.getOrdersForUser(req.user.sub);
+  }
+
   @Post()
   createOrder(
     @Req() req: AuthenticatedRequest,
@@ -43,10 +51,13 @@ export class OrdersController {
       throw new BadRequestException('Danh sách sản phẩm không được để trống');
     }
 
-    return this.orderService.createOrder(req.user.sub, dto.items);
+    return dto.promoCode === undefined
+      ? this.orderService.createOrder(req.user.sub, dto.items)
+      : this.orderService.createOrder(req.user.sub, dto.items, dto.promoCode);
   }
 
   @Patch(':id/status')
+  @HttpCode(HttpStatus.NO_CONTENT)
   async transitionOrder(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,
@@ -58,9 +69,18 @@ export class OrdersController {
       req.user.sub,
     );
 
-    return {
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async cancelOrder(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    await this.orderService.transitionOrderForUser(
       id,
-      status: dto.status,
-    };
+      'CANCELLED',
+      req.user.sub,
+    );
   }
 }
