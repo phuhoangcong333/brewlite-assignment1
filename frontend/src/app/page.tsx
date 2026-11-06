@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { getProducts } from "@/lib/api";
 import { formatVND } from "@/lib/pricing";
 import type { Product } from "@/lib/types";
-import { useCartStore } from "@/lib/cart-store";
 
 export default function MenuPage() {
   const router = useRouter();
@@ -16,8 +15,6 @@ export default function MenuPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authorized, setAuthorized] = useState(false);
-
-  const addItem = useCartStore((state) => state.addItem);
 
   const load = () => {
     setLoading(true);
@@ -97,22 +94,16 @@ export default function MenuPage() {
               </p>
             </Link>
 
-            <button
-              type="button"
-              onClick={() => {
-                addItem({
-                  productId: String(p.id),
-                  name: p.name,
-                  price: p.price,
-                  size: "M",
-                  toppings: [],
-                  imageUrl: p.imageUrl ?? undefined,
-                });
-              }}
-              className="mt-3 w-full rounded-md bg-amber-800 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-900 active:scale-95"
+            <p
+              className={`mt-3 rounded-md py-1.5 text-center text-xs font-semibold ${
+                p.stock > 0
+                  ? "bg-amber-50 text-amber-800"
+                  : "bg-gray-100 text-gray-500"
+              }`}
+              aria-live="polite"
             >
-              + Thêm vào giỏ
-            </button>
+              {p.stock > 0 ? `Còn lại trong kho: ${p.stock}` : "Hết hàng"}
+            </p>
           </div>
         ))}
       </div>

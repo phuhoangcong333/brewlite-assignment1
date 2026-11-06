@@ -62,7 +62,6 @@ export class OrdersController {
     return dto.promoCode === undefined
       ? this.orderService.createOrder(req.user.sub, dto.items)
       : this.orderService.createOrder(req.user.sub, dto.items, dto.promoCode);
-
   }
 
   @Patch(':id/status')

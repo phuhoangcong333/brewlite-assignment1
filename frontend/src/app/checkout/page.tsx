@@ -31,10 +31,26 @@ export default function CheckoutPage() {
   const [qrOrderId, setQrOrderId] = useState<number | null>(null);
   const [step, setStep] = useState<Step>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [stockConflict, setStockConflict] = useState(false);
 
   const orderId = useRef<number | null>(null);
   const idemKey = useRef<string | null>(null);
   const busy = step !== "idle";
+
+  const showStockConflict = (e: unknown): boolean => {
+    if (
+      e instanceof ApiError &&
+      e.status === 409 &&
+      /^Insufficient stock for product \d+$/.test(e.message)
+    ) {
+      setStockConflict(true);
+      setError(
+        "Lỗi 409: Không thể tạo đơn vì tồn kho của một món vừa thay đổi và không còn đủ số lượng bạn chọn. Giỏ hàng của bạn vẫn được giữ nguyên.",
+      );
+      return true;
+    }
+    return false;
+  };
 
   useEffect(() => {
     if (!getToken()) router.replace("/login?next=/checkout");
@@ -90,6 +106,7 @@ export default function CheckoutPage() {
   const handleCreateQr = async () => {
     if (busy) return;
     setError(null);
+    setStockConflict(false);
     setStep("creating");
     try {
       const order = await ensureOrder();
@@ -98,6 +115,7 @@ export default function CheckoutPage() {
       );
       setQrOrderId(order.id);
     } catch (e) {
+      if (showStockConflict(e)) return;
       setError(e instanceof Error ? e.message : "Không thể tạo mã QR");
     } finally {
       setStep("idle");
@@ -107,6 +125,7 @@ export default function CheckoutPage() {
   const handleConfirm = async () => {
     if (busy) return;
     setError(null);
+    setStockConflict(false);
     try {
       setStep("creating");
       const order = await ensureOrder();
@@ -140,6 +159,7 @@ export default function CheckoutPage() {
     } catch (e) {
       setStep("idle");
       if (e instanceof ApiError && e.status === 401) return router.replace("/login?next=/checkout");
+      if (showStockConflict(e)) return;
       if (e instanceof ApiError && e.status === 409) idemKey.current = null;
       setError(e instanceof Error ? e.message : "Không thể thanh toán");
     }
@@ -289,8 +309,21 @@ export default function CheckoutPage() {
         </div>
 
         {error && (
-          <div style={{ padding: "12px", background: "#fee2e2", color: "#b91c1c", borderRadius: "10px", fontSize: "14px", marginBottom: "20px" }}>
+          <div
+            role="alert"
+            style={{ padding: "12px", background: "#fee2e2", color: "#b91c1c", borderRadius: "10px", fontSize: "14px", marginBottom: "20px" }}
+          >
             {error}
+            {stockConflict && (
+              <div style={{ marginTop: "10px" }}>
+                <Link
+                  href="/cart"
+                  style={{ color: "#991b1b", fontWeight: 600, textDecoration: "underline" }}
+                >
+                  Quay lại giỏ hàng để chỉnh sửa
+                </Link>
+              </div>
+            )}
           </div>
         )}
 

@@ -37,8 +37,10 @@ export default function ProductDetailPage() {
   if (!product) return <p className="p-4">Không tìm thấy sản phẩm.</p>;
 
   const unitPrice = calcUnitPrice(product.price, size, toppings);
+  const canAdd = product.stock > 0 && qty <= product.stock;
 
   const handleAdd = () => {
+    if (!canAdd) return;
     addToCart({
       productId: product.id,
       name: product.name,
@@ -58,6 +60,9 @@ export default function ProductDetailPage() {
       </Link>
       <h1 className="mt-2 text-2xl font-bold">{product.name}</h1>
       <p className="text-amber-700">Giá gốc: {formatVND(product.price)}</p>
+      <p className={product.stock > 0 ? "mt-1 text-sm text-green-700" : "mt-1 text-sm text-red-600"}>
+        {product.stock > 0 ? `Còn lại trong kho: ${product.stock}` : "Hết hàng"}
+      </p>
 
       <div className="mt-3 flex h-64 items-center justify-center rounded bg-amber-100 text-6xl">
         {product.imageUrl ? (
@@ -110,20 +115,26 @@ export default function ProductDetailPage() {
         <button
           onClick={() => setQty((q) => Math.max(1, q - 1))}
           className="rounded border px-3"
+          disabled={qty <= 1}
         >
           -
         </button>
         <span>{qty}</span>
-        <button onClick={() => setQty((q) => q + 1)} className="rounded border px-3">
+        <button
+          onClick={() => setQty((q) => Math.min(product.stock, q + 1))}
+          className="rounded border px-3"
+          disabled={qty >= product.stock}
+        >
           +
         </button>
       </section>
 
       <button
         onClick={handleAdd}
-        className="mt-6 w-full rounded bg-amber-600 py-3 text-white"
+        disabled={!canAdd}
+        className="mt-6 w-full rounded bg-amber-600 py-3 text-white disabled:cursor-not-allowed disabled:bg-gray-400"
       >
-        Thêm vào giỏ - {formatVND(unitPrice * qty)}
+        {product.stock > 0 ? `Thêm vào giỏ - ${formatVND(unitPrice * qty)}` : "Hết hàng"}
       </button>
     </main>
   );
