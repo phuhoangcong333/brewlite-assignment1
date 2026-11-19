@@ -16,13 +16,16 @@ describeDb('Task 10 HTTP integration', () => {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const email = `task10-e2e-${suffix}@example.test`;
   const otherEmail = `task10-e2e-other-${suffix}@example.test`;
+  const staffEmail = `task10-e2e-staff-${suffix}@example.test`;
   const password = 'task10-password';
   const productIds: number[] = [];
   const promotionCodes: string[] = [];
   let userId: number;
   let otherUserId: number;
+  let staffUserId: number;
   let token: string;
   let otherToken: string;
+  let staffToken: string;
 
   async function createProduct(stock: number): Promise<number> {
     const product = await prisma.product.create({
@@ -78,17 +81,34 @@ describeDb('Task 10 HTTP integration', () => {
         select: { id: true },
       })
     ).id;
+    staffUserId = (
+      await prisma.user.create({
+        data: {
+          email: staffEmail,
+          passwordHash: await bcrypt.hash(password, 4),
+          role: 'STAFF',
+        },
+        select: { id: true },
+      })
+    ).id;
 
     const login = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ email, password })
       .expect(200);
     token = login.body.access_token;
+
     const otherLogin = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ email: otherEmail, password })
       .expect(200);
     otherToken = otherLogin.body.access_token;
+
+    const staffLogin = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: staffEmail, password })
+      .expect(200);
+    staffToken = staffLogin.body.access_token;
   });
 
   afterAll(async () => {
@@ -99,6 +119,7 @@ describeDb('Task 10 HTTP integration', () => {
     await prisma.promotion.deleteMany({
       where: { code: { in: promotionCodes } },
     });
+    await prisma.user.delete({ where: { id: staffUserId } });
     await prisma.user.delete({ where: { id: otherUserId } });
     await prisma.user.delete({ where: { id: userId } });
     await app.close();
@@ -315,7 +336,7 @@ describeDb('Task 10 HTTP integration', () => {
     for (const status of ['PREPARING', 'READY', 'COMPLETED']) {
       await request(app.getHttpServer())
         .patch(`/orders/${order.body.id}/status`)
-        .set('Authorization', `Bearer ${token}`)
+        .set('Authorization', `Bearer ${staffToken}`)
         .send({ status })
         .expect(204);
     }
@@ -334,7 +355,7 @@ describeDb('Task 10 HTTP integration', () => {
 
     await request(app.getHttpServer())
       .patch(`/orders/${order.body.id}/status`)
-      .set('Authorization', `Bearer ${token}`)
+      .set('Authorization', `Bearer ${staffToken}`)
       .send({ status: 'READY' })
       .expect(409);
   });
